@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+  </defs>
+  <!-- Background Rounded Rect -->
+  <rect width="100" height="100" rx="24" fill="url(#blueGrad)" />
+  <!-- Smartphone Outline -->
+  <rect x="28" y="20" width="44" height="60" rx="8" fill="none" stroke="#ffffff" stroke-width="6" />
+  <!-- Screen Notch/Camera -->
+  <line x1="45" y1="26" x2="55" y2="26" stroke="#ffffff" stroke-width="4" stroke-linecap="round" />
+  <!-- Sparkle/Diagnostic bolt -->
+  <path d="M50 38 L42 52 L52 52 L48 66 L58 50 L48 50 Z" fill="#38bdf8" />
+</svg>

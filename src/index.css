@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  --font-jakarta: "Plus Jakarta Sans", sans-serif;
+  --font-playfair: "Playfair Display", serif;
+}
+
+@layer base {
+  html, body {
+    background-color: #fafafa;
+    color: #0f172a;
+    min-height: 100vh;
+  }
+  body {
+    @apply font-jakarta text-slate-900 bg-[#fafafa];
+  }
+}
+
+:root {
+  --founder-glow-speed: 2.8s;
+  --founder-transition-speed: 0.35s;
+  --founder-hover-scale: 1.012;
+  --founder-pulse-scale-min: 1.008;
+  --founder-pulse-scale-max: 1.015;
+  --founder-active-scale: 0.995;
+}
+
+@keyframes founderGlowPulse {
+  0%, 100% {
+    box-shadow: 0 16px 40px -10px rgba(37, 99, 235, 0.35), 0 0 30px 4px rgba(59, 130, 246, 0.25);
+    border-color: rgba(59, 130, 246, 0.5);
+    transform: translate3d(0, -3px, 0) scale3d(var(--founder-pulse-scale-min, 1.008), var(--founder-pulse-scale-min, 1.008), 1);
+  }
+  50% {
+    box-shadow: 0 24px 60px -8px rgba(37, 99, 235, 0.55), 0 0 50px 10px rgba(99, 102, 241, 0.42);
+    border-color: rgba(99, 102, 241, 0.75);
+    transform: translate3d(0, -5px, 0) scale3d(var(--founder-pulse-scale-max, 1.015), var(--founder-pulse-scale-max, 1.015), 1);
+  }
+}
+
+#home-founder-note {
+  --animation-speed: var(--founder-glow-speed, 2.8s);
+  --transition-speed: var(--founder-transition-speed, 0.35s);
+  transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  transition: transform var(--transition-speed) cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow var(--transition-speed) cubic-bezier(0.16, 1, 0.3, 1), 
+              border-color var(--transition-speed) ease;
+  will-change: transform, box-shadow;
+}
+
+#home-founder-note:hover {
+  animation: founderGlowPulse var(--animation-speed) ease-in-out infinite;
+}
+
+#home-founder-note:active {
+  animation-play-state: paused;
+  transform: translate3d(0, 0, 0) scale3d(var(--founder-active-scale, 0.995), var(--founder-active-scale, 0.995), 1);
+  transition-duration: 0.15s;
+}
+
+.founder-img-wrapper {
+  aspect-ratio: 4 / 5;
+}
+
+.prose pre {
+  @apply bg-slate-900 text-slate-100 p-4 rounded-xl overflow-x-auto;
+}
+
+.prose code {
+  @apply bg-slate-100 text-slate-900 px-1 rounded font-mono text-[0.9em];
+}
