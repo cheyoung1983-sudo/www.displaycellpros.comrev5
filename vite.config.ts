@@ -12,10 +12,10 @@ export default defineConfig(() => {
       },
     },
     server: {
-      // Vite runs as Express middleware below, and the Express listener does not
-      // forward WebSocket upgrade requests to Vite's HMR server. Disable HMR so
-      // the injected @vite/client does not repeatedly attempt a dead WebSocket.
-      hmr: false,
+      // HMR is disabled in AI Studio via DISABLE_HMR env var.
+      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
+      hmr: process.env.DISABLE_HMR !== 'true',
+      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
   };
