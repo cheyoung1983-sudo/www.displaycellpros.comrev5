@@ -46,6 +46,18 @@ app.use(express.json({
 
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+app.get('/api/shopify/products', async (_req, res) => {
+  try {
+    const { shopifyFetch } = await import('./src/lib/shopify.ts');
+    const { PRODUCTS_QUERY } = await import('./src/lib/shopify-queries.ts');
+    const data = await shopifyFetch<{ products: { nodes: unknown[] } }>(PRODUCTS_QUERY, { first: 12 });
+    res.json(data.products.nodes);
+  } catch (error) {
+    console.error('[v0] Shopify catalog request failed:', error);
+    res.status(502).json({ error: 'Unable to load the Shopify catalog' });
+  }
+});
+
 // Explicitly serve public directory static assets with optimal MIME types & headers
 const publicDirectoryPath = path.join(process.cwd(), 'public');
 app.use(express.static(publicDirectoryPath, {
@@ -3248,7 +3260,12 @@ Generate exactly 4-5 well-thought-out scenes.
     if (!process.env.VERCEL) {
       if (process.env.NODE_ENV !== 'production') {
         const vite = await createViteServer({
-          server: { middlewareMode: true },
+          server: {
+            middlewareMode: true,
+            // Express does not forward WebSocket upgrades to Vite's HMR server.
+            // Disable HMR and client injection to prevent dead preview sockets.
+            hmr: false,
+          },
           appType: 'spa',
         });
         app.use(vite.middlewares);

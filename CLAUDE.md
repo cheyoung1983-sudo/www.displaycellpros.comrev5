@@ -6,19 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Another checkout of the **Display & Cell Pros LLC** device repair site — a Vite + Express SPA (device repair intake, WebUSB hardware diagnostic port monitor, bench QA portal). Architecturally this is near-identical to the sibling repo `www.displaycellpros.comrev4` (same `package.json` name `react-example`, same scripts, same `src/lib` file set, same single-file `server.ts` backend). Treat `rev4`'s `CLAUDE.md` as the fuller architecture reference — this file only covers commands plus the concrete differences that matter when working in *this* checkout.
 
-**This repo is a single-commit scaffold** (`chore: setup project infrastructure and CI/CD`), not a linear continuation of `rev4`'s history. It is missing some fixes present in `rev4` and has a few of its own — don't assume parity between the two without checking. Known differences as of this writing:
+**This repo started as a single-commit scaffold** (`chore: setup project infrastructure and CI/CD`), not a linear continuation of `rev4`'s history — don't assume parity between the two without checking. It originally lacked a few fixes present in `rev4`; those have since been ported over here directly (see git history):
 
-- **`src/lib/aurora.ts` hardcodes production Aurora connection defaults directly in source** (`PGHOST`, `AWS_REGION`, `AWS_ROLE_ARN`, `PGDATABASE`, `PGUSER` all fall back to real production values when the corresponding env vars are unset), and unconditionally builds an IAM `Signer` — unlike `rev4`'s version, there's no plain-`PGPASSWORD` fallback path for local dev. Practically: this app will attempt to reach the real production Aurora cluster even with an empty `.env`, rather than failing fast or falling back to a local database.
-- The Express-middleware Vite HMR fix present in `rev4` (`hmr: false`, needed because the Express listener doesn't forward WebSocket upgrades to Vite's dev server) is **not** applied here — both `vite.config.ts` and the inline `createViteServer` call in `server.ts` still use the original AI-Studio-scaffold HMR handling. Expect a repeatedly-reconnecting dead `@vite/client` WebSocket in the browser console during `npm run dev`.
-- `server.ts` here is missing the `/api/shopify/products` route that exists in `rev4`.
-- The `next/link` / `next/headers` stray Next.js imports that broke `rev4`'s typecheck (in `StoreView.tsx` / `cart-actions.ts`) are **already fixed** here — they don't appear in this checkout.
-- `.env.example` has no section comments and no pre-filled non-secret values (Auth0 domain/client ID, GitHub client ID, Aurora host, etc. are all blank placeholders here, whereas `rev4`'s `.env.example` ships the real public identifiers) — check `rev4`'s `.env.example` or the Auth0/GitHub dashboards if you need those values.
-- **No `package-lock.json` is committed.** Run `npm install` to generate one locally before relying on reproducible installs; CI's `npm install` step will resolve fresh each run.
+- `src/lib/aurora.ts` no longer hardcodes production Aurora connection defaults (`PGHOST`, `AWS_REGION`, `AWS_ROLE_ARN`, `PGDATABASE`, `PGUSER`) as source-level fallbacks — it now throws if required config is missing, and supports a plain-`PGPASSWORD` fallback path for local dev instead of unconditionally requiring AWS IAM, matching `rev4`'s safer version.
+- The Express-middleware Vite HMR fix (`hmr: false`, needed because the Express listener doesn't forward WebSocket upgrades to Vite's dev server) is now applied in both `vite.config.ts` and the inline `createViteServer` call in `server.ts`.
+- `server.ts` now has the `/api/shopify/products` route, ported from `rev4`.
+- `package-lock.json` is now committed.
+- The `next/link` / `next/headers` stray Next.js imports that broke `rev4`'s typecheck (in `StoreView.tsx` / `cart-actions.ts`) were never present here.
+- `.env.example` still has no section comments and no pre-filled non-secret values (Auth0 domain/client ID, GitHub client ID, Aurora host, etc. are all blank placeholders here, whereas `rev4`'s `.env.example` ships the real public identifiers) — check `rev4`'s `.env.example` or the Auth0/GitHub dashboards if you need those values.
 
 ## Commands
 
 ```bash
-npm install            # no lockfile committed — this resolves versions fresh
+npm install
 npm run dev             # tsx server.ts — Express server with Vite dev middleware
 npm run build             # vite build (client) + esbuild bundles server.ts to dist/server.cjs
 npm run vercel-build       # what Vercel actually runs: npm install --include=dev && vite build && esbuild ...
