@@ -26,31 +26,35 @@ export interface Auth0AuthorizationExtensionData {
   groups: Auth0Group[];
 }
 
-// Initial configuration provided for Auth0 Authorization Extension
+// Placeholder/demo seed data for the Auth0 Authorization Extension UI demo
+// (Auth0RbacModal). This is display-only sample data stored in the browser's
+// localStorage — it is NOT wired to a real backend and should never contain
+// a real API key, application ID, or user identifier, since anything here
+// ships in the public client bundle to every visitor.
 export const DEFAULT_AUTH0_RBAC_DATA: Auth0AuthorizationExtensionData = {
   configuration: [
     {
       _id: "v1",
-      apikey: "66cb7c53a6b208edaff503f67bf39038d49948109fff330389e2761c6b3a6af5",
+      apikey: "REPLACE_WITH_YOUR_OWN_KEY_IN_APP_UI",
       rolesInToken: true,
       rolesPassthrough: true
     }
   ],
   permissions: [
     {
-      _id: "8df20543-aa89-4ddb-aa83-cb00cab1801b",
+      _id: "sample-permission-id",
       name: "dcp",
-      description: "dcp1",
-      applicationId: "iHyCQzrHYenv4lrkCFy4v9528jtJUUHl",
+      description: "Sample D&CP technician permission",
+      applicationId: "sample-application-id",
       applicationType: "client"
     }
   ],
   groups: [
     {
-      _id: "f80d5dc6-aa81-4a1e-89ef-46cafa97b541",
+      _id: "sample-group-id",
       name: "SuperAdmin",
       description: "Root",
-      members: ["google-oauth2|102574138357203183279"]
+      members: ["sample-user-id"]
     }
   ]
 };

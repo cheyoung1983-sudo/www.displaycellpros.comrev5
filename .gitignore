@@ -8,3 +8,4 @@ bun.lock
 bun.lockb
 .env*
 !.env.example
+.vercel

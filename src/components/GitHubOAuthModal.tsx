@@ -115,10 +115,20 @@ export default function GitHubOAuthModal({ isOpen, onClose, initialTab = 'oauth'
   const [newIssueBody, setNewIssueBody] = useState('Observed 0.04A short to ground on VDD_MAIN rail during bench intake sweep.');
   const [newIssueModel, setNewIssueModel] = useState('iPhone 15 Pro Max (A3106)');
 
-  const clientId = 'Ov23lifKkuO7pQzIVrlG';
+  // Client ID is public by OAuth design, but sourced from the server's
+  // configured value rather than hardcoded, so it stays correct if the
+  // GitHub OAuth App is ever rotated or re-created.
+  const [clientId, setClientId] = useState<string>('');
   const appName = 'Dcp';
   const owner = 'cheyoung1983-sudo';
   const repoName = 'D-CP-LLC-Repair-Portal-001';
+
+  useEffect(() => {
+    fetch('/api/auth/github/config')
+      .then((res) => res.json())
+      .then((data) => setClientId(data.clientId || 'Not configured'))
+      .catch(() => setClientId('Not configured'));
+  }, []);
 
   // Derived callback and webhook URLs
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
