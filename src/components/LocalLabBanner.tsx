@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapPin, Clock, Navigation, Calendar, X, Sparkles, Building2 } from 'lucide-react';

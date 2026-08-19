@@ -1,7 +1,12 @@
+"use client";
+
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import ryanYoungImage from '../assets/images/regenerated_image_1786855135392.jpg';
+import ryanYoungImageSrc from '../assets/images/regenerated_image_1786855135392.jpg';
+import { staticImageSrc } from '../utils/staticImage.ts';
 import FounderMessage from './FounderMessage.tsx';
+
+const ryanYoungImage = staticImageSrc(ryanYoungImageSrc);
 import { 
   MapPin, 
   Mail, 

@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Lock, X, CheckCircle2, FileText, Send, User, Building, Clock, Download, Cpu, ShieldCheck, Award, CreditCard, Search, Loader2 } from 'lucide-react';
 import { MOCK_CLIENT_PROJECTS, MOCK_CLIENT_MESSAGES, COMPANY_INFO, FEDERAL_CREDENTIALS } from '../data/companyData';

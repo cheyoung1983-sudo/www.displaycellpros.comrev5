@@ -1,17 +1,20 @@
+"use client";
+
 import { useState, useEffect } from 'react';
 import { WifiOff, HardDrive, Download } from 'lucide-react';
 import { downloadDatabaseBackup } from '../lib/db.ts';
 
 export default function OfflineStatusBanner() {
-  const [isOnline, setIsOnline] = useState<boolean>(
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  );
+  // Always assume online for the first render so server and client markup
+  // match; the real status is applied immediately after mount below.
+  const [isOnline, setIsOnline] = useState<boolean>(true);
   const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
+    setIsOnline(navigator.onLine);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 

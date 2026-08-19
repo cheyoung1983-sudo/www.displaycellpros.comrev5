@@ -4,6 +4,9 @@ import { ErrorBoundary } from '../src/components/ErrorBoundary.tsx';
 import { Auth0ProviderWithConfig } from '../src/components/Auth0ProviderWithConfig.tsx';
 import { ToastProvider } from '../src/components/Toast.tsx';
 import { ChunkErrorRecovery } from '../src/components/ChunkErrorRecovery.tsx';
+import { SiteHeader } from '../src/components/SiteHeader.tsx';
+import { SiteFooter } from '../src/components/SiteFooter.tsx';
+import { VercelAnalyticsGate } from '../src/components/VercelAnalyticsGate.tsx';
 
 export const metadata: Metadata = {
   title: 'Display & Cell Pros LLC | Bench Repair Portal',
@@ -45,12 +48,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body>
+      <body className="min-h-screen bg-[#FAFAFA] selection:bg-slate-900 selection:text-white">
         <ErrorBoundary>
           <Auth0ProviderWithConfig>
-            <ToastProvider>{children}</ToastProvider>
+            <ToastProvider>
+              <SiteHeader />
+              <main className="pt-32 pb-20">{children}</main>
+              <SiteFooter />
+            </ToastProvider>
           </Auth0ProviderWithConfig>
         </ErrorBoundary>
+        <VercelAnalyticsGate />
         <ChunkErrorRecovery />
       </body>
     </html>
