@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Mail, Phone, MapPin, Send, CheckCircle2, Clock, Globe, ShieldCheck, Wrench, Cpu } from 'lucide-react';
 import { OFFICE_LOCATIONS, SERVICES_DATA, FEDERAL_CREDENTIALS } from '../data/companyData';

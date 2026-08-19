@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Calculator, Check, ArrowRight, X, DollarSign, Wrench, ShieldCheck, TrendingUp, Award, Cpu, CreditCard } from 'lucide-react';
 import { SERVICES_DATA, PHASE_1_INVESTMENT_LOADOUT } from '../data/companyData';

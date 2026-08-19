@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 import { X, Wrench, ShieldCheck, DollarSign, CheckCircle2, Award, FileText, Cpu, Package } from 'lucide-react';
 import { PHASE_1_INVESTMENT_LOADOUT, FEDERAL_CREDENTIALS } from '../data/companyData';

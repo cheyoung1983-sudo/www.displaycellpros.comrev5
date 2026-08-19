@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Mail, Linkedin, MapPin, Award, ChevronRight, X, ShieldCheck, Wrench, Cpu } from 'lucide-react';
 import { TEAM_MEMBERS } from '../data/companyData';

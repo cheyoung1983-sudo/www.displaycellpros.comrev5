@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { useSafeAuth0 } from './Auth0ProviderWithConfig.tsx';
 import { User, Mail, ShieldCheck, LogIn, Loader2, Sparkles, Key, Shield, Layers, Github } from 'lucide-react';

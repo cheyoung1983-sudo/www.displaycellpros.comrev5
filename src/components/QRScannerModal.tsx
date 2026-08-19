@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Camera, X, RefreshCw, AlertTriangle, FileImage, QrCode, CheckCircle2 } from 'lucide-react';

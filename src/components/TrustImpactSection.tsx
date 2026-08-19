@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Cpu, Award, Users, CheckCircle2, Timer, Sparkles, ArrowRight } from 'lucide-react';
 

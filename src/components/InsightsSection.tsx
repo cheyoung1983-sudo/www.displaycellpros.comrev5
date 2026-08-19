@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Search, Clock, ArrowRight, X, BookOpen, Share2 } from 'lucide-react';
 import { INSIGHTS_DATA } from '../data/companyData';
