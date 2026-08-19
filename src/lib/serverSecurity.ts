@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { NextRequest, NextResponse } from 'next/server';
 
 // ==========================================
 // 1. IN-MEMORY LRU CACHE WITH TTL
@@ -64,7 +65,13 @@ interface RateLimitRecord {
   timestamps: number[];
 }
 
-export function createRateLimiter(options: { maxRequests: number; windowMs: number; message?: string }) {
+interface RateLimitCheckResult {
+  limited: boolean;
+  message: string;
+  retryAfterSeconds?: number;
+}
+
+function createRateLimiterCore(options: { maxRequests: number; windowMs: number; message?: string }) {
   const ipStore = new Map<string, RateLimitRecord>();
   const { maxRequests, windowMs, message = 'Rate limit exceeded. Please try again shortly.' } = options;
 
@@ -79,8 +86,7 @@ export function createRateLimiter(options: { maxRequests: number; windowMs: numb
     }
   }, 5 * 60 * 1000);
 
-  return (req: Request, res: Response, next: NextFunction) => {
-    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || '127.0.0.1';
+  return function checkLimit(clientIp: string): RateLimitCheckResult {
     const now = Date.now();
 
     let record = ipStore.get(clientIp);
@@ -93,15 +99,58 @@ export function createRateLimiter(options: { maxRequests: number; windowMs: numb
     record.timestamps = record.timestamps.filter((ts) => now - ts < windowMs);
 
     if (record.timestamps.length >= maxRequests) {
-      return res.status(429).json({
-        success: false,
-        error: message,
+      return {
+        limited: true,
+        message,
         retryAfterSeconds: Math.ceil((record.timestamps[0] + windowMs - now) / 1000),
-      });
+      };
     }
 
     record.timestamps.push(now);
+    return { limited: false, message };
+  };
+}
+
+export function createRateLimiter(options: { maxRequests: number; windowMs: number; message?: string }) {
+  const checkLimit = createRateLimiterCore(options);
+
+  return (req: Request, res: Response, next: NextFunction) => {
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || '127.0.0.1';
+    const result = checkLimit(clientIp);
+
+    if (result.limited) {
+      return res.status(429).json({
+        success: false,
+        error: result.message,
+        retryAfterSeconds: result.retryAfterSeconds,
+      });
+    }
+
     next();
+  };
+}
+
+/**
+ * Next.js Route Handler counterpart to createRateLimiter - call check(req) at
+ * the top of a handler; a non-null return is a ready-to-return 429 response.
+ */
+export function createNextRateLimiter(options: { maxRequests: number; windowMs: number; message?: string }) {
+  const checkLimit = createRateLimiterCore(options);
+
+  return {
+    check(req: NextRequest): NextResponse | null {
+      const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
+      const result = checkLimit(clientIp);
+
+      if (result.limited) {
+        return NextResponse.json(
+          { success: false, error: result.message, retryAfterSeconds: result.retryAfterSeconds },
+          { status: 429 }
+        );
+      }
+
+      return null;
+    },
   };
 }
 
@@ -153,3 +202,18 @@ export async function withTimeout<T>(promise: Promise<T>, timeoutMs = 4500, fall
     return fallback;
   }
 }
+
+// ==========================================
+// 5. SHARED NEXT.JS ROUTE HANDLER RATE LIMITERS
+// ==========================================
+export const aiRateLimiterNext = createNextRateLimiter({
+  maxRequests: 60,
+  windowMs: 60 * 1000,
+  message: 'AI throughput limit reached. Please wait a moment before sending another request.',
+});
+
+export const formRateLimiterNext = createNextRateLimiter({
+  maxRequests: 30,
+  windowMs: 60 * 1000,
+  message: 'Submission limit reached. Please wait a moment before resubmitting.',
+});
