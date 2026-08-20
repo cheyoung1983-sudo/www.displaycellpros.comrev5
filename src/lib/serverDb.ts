@@ -102,7 +102,7 @@ export function getDatabasePool(): Pool {
     }
 
     poolInstance = new Pool(
-      createPoolConfig(host, port, user, database, signer, POOL_CONFIG.primaryMax)
+      createPoolConfig(host, port, user, database, signer, POOL_CONFIG.primaryMax, POOL_CONFIG.primaryMin)
     );
 
     poolInstance.on('error', (err) => {
@@ -154,7 +154,7 @@ export function getReadOnlyDatabasePool(): Pool {
     }
 
     readOnlyPoolInstance = new Pool(
-      createPoolConfig(host, port, user, database, signer, POOL_CONFIG.readOnlyMax)
+      createPoolConfig(host, port, user, database, signer, POOL_CONFIG.readOnlyMax, POOL_CONFIG.readOnlyMin)
     );
 
     readOnlyPoolInstance.on('error', (err) => {

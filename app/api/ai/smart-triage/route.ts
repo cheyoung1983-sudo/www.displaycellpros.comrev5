@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { aiRateLimiterNext, triageCache, withTimeout } from '../../../../src/lib/serverSecurity.ts';
 import { SmartTriageSchema } from '../../../../src/lib/schemas.ts';
-import { getOpenAI } from '../../../../src/lib/aiClients.ts';
+import { getOpenAI, getGemini } from '../../../../src/lib/aiClients.ts';
 
 /**
  * POST /api/ai/smart-triage
@@ -39,10 +39,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const openai = getOpenAI();
-    if (openai) {
-      try {
-        const prompt = `
+    const prompt = `
 You are the Lead Hardware Triage Specialist at D&CP Spokane Lab.
 Analyze the user's reported device symptoms and model to suggest likely issue categories, service tier, confidence score, and initial DIY troubleshooting steps.
 
@@ -68,6 +65,35 @@ Return ONLY a valid JSON object matching this schema (no markdown code fences):
 }
           `;
 
+    const gemini = getGemini();
+    if (gemini) {
+      try {
+        const response = await withTimeout(
+          gemini.models.generateContent({
+            model: 'gemini-2.0-flash-exp',
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+            },
+          }),
+          6000,
+          null
+        );
+
+        const replyText = response?.response?.text();
+        if (replyText) {
+          const parsed = JSON.parse(replyText);
+          triageCache.set(cacheKey, parsed);
+          return NextResponse.json({ success: true, triage: parsed, modelUsed: 'gemini-2.0-flash-exp' });
+        }
+      } catch (geminiErr) {
+        console.warn('Gemini smart-triage call failed, trying OpenAI:', geminiErr);
+      }
+    }
+
+    const openai = getOpenAI();
+    if (openai) {
+      try {
         const aiPromise = openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
@@ -90,7 +116,7 @@ Return ONLY a valid JSON object matching this schema (no markdown code fences):
         if (replyText) {
           const parsed = JSON.parse(replyText);
           triageCache.set(cacheKey, parsed);
-          return NextResponse.json({ success: true, triage: parsed });
+          return NextResponse.json({ success: true, triage: parsed, modelUsed: 'gpt-4o-mini' });
         }
       } catch (aiErr) {
         console.warn('OpenAI smart-triage call failed, falling back to rule-based triage:', aiErr);

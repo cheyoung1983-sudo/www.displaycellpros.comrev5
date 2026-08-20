@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { aiRateLimiterNext, withTimeout } from '../../../../src/lib/serverSecurity.ts';
 import { DiagnosticPathSchema } from '../../../../src/lib/schemas.ts';
-import { getOpenAI } from '../../../../src/lib/aiClients.ts';
+import { getOpenAI, getGemini } from '../../../../src/lib/aiClients.ts';
 
 /**
  * POST /api/ai/diagnostic-path
@@ -41,10 +41,7 @@ export async function POST(req: NextRequest) {
       };
 
   try {
-    const openai = getOpenAI();
-    if (openai) {
-      try {
-        const prompt = `
+    const prompt = `
 You are the Lead Master Bench Technician at D&CP Spokane Repair Lab (IPC-A-610 Certified).
 Analyze the technician's intake notes, selected symptoms, hardware telemetry, and device details to generate a precise, step-by-step Recommended Diagnostic Path.
 
@@ -92,6 +89,34 @@ Produce a structured JSON plan strictly matching this format:
 }
 `;
 
+    const gemini = getGemini();
+    if (gemini) {
+      try {
+        const response = await withTimeout(
+          gemini.models.generateContent({
+            model: 'gemini-2.0-flash-exp',
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+            },
+          }),
+          6000,
+          null
+        );
+
+        const replyText = response?.response?.text();
+        if (replyText) {
+          const parsed = JSON.parse(replyText);
+          return NextResponse.json({ success: true, path: parsed, modelUsed: 'gemini-2.0-flash-exp' });
+        }
+      } catch (geminiErr) {
+        console.warn('Gemini diagnostic path call failed, trying OpenAI:', geminiErr);
+      }
+    }
+
+    const openai = getOpenAI();
+    if (openai) {
+      try {
         const aiPromise = openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
@@ -113,7 +138,7 @@ Produce a structured JSON plan strictly matching this format:
 
         if (replyText) {
           const parsed = JSON.parse(replyText);
-          return NextResponse.json({ success: true, path: parsed });
+          return NextResponse.json({ success: true, path: parsed, modelUsed: 'gpt-4o-mini' });
         }
       } catch (aiErr) {
         console.warn('OpenAI diagnostic path API call failed, falling back to rule-based engine:', aiErr);
