@@ -3244,15 +3244,36 @@ Generate exactly 4-5 well-thought-out scenes.
     if (!process.env.VERCEL) {
       if (process.env.NODE_ENV !== 'production') {
         const vite = await createViteServer({
-          server: {
-            middlewareMode: true,
-            // Express does not forward WebSocket upgrades to Vite's HMR server.
-            // Disable HMR and client injection to prevent dead preview sockets.
-            hmr: false,
-          },
-          appType: 'spa',
-        });
-        app.use(vite.middlewares);
+      server: {
+        middlewareMode: true,
+        // Express does not forward WebSocket upgrades to Vite's HMR server.
+        // Disable both HMR and file watching so no preview socket is opened.
+        hmr: false,
+        watch: null,
+      },
+      appType: 'spa',
+      });
+      // Vite may still inject its client in middleware mode; serve a no-op
+      // module so preview never attempts a WebSocket upgrade through Express.
+      app.get('/@vite/client', (_req, res) => {
+        res.type('application/javascript').send(`
+          const noop = () => {};
+          export const removeStyle = noop;
+          export const updateStyle = noop;
+          export const createHotContext = () => ({
+            accept: noop,
+            dispose: noop,
+            prune: noop,
+            decline: noop,
+            invalidate: noop,
+            on: noop,
+            off: noop,
+            send: noop,
+            data: {},
+          });
+        `);
+      });
+      app.use(vite.middlewares);
       } else {
         const distPath = path.join(process.cwd(), 'dist');
         app.use(express.static(distPath));

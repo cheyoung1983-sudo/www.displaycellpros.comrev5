@@ -1,22 +1,32 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, type Plugin} from 'vite';
+
+const disablePreviewHmrClient = (): Plugin => ({
+  name: 'disable-preview-hmr-client',
+  enforce: 'post',
+  transformIndexHtml: {
+    order: 'post',
+    handler(html) {
+      return html.replace(/\s*<script[^>]+src=["']\/@vite\/client[^>]*><\/script>/, '');
+    },
+  },
+});
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), disablePreviewHmrClient()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
     },
     server: {
-      // Vite runs as Express middleware below, and the Express listener does not
-      // forward WebSocket upgrade requests to Vite's HMR server. Disable HMR so
-      // the injected @vite/client does not repeatedly attempt a dead WebSocket.
+      // Vite is mounted as Express middleware, so there is no WebSocket upgrade
+      // path for the dev server. Keep the middleware fully non-HMR in preview.
       hmr: false,
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      watch: null,
     },
   };
 });
