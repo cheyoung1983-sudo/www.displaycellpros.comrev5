@@ -1,0 +1,15 @@
+#!/bin/sh
+# Runs the CI gate before a push so a red build is caught here, not on GitHub.
+#
+# Enable once per clone:
+#   git config core.hooksPath .githooks
+#
+# Bypass for a genuine emergency:
+#   git push --no-verify
+echo "pre-push: running preflight (npm run preflight)…"
+npm run preflight || {
+  echo ""
+  echo "pre-push: preflight failed — push aborted."
+  echo "Fix the errors above, or use 'git push --no-verify' to override."
+  exit 1
+}
