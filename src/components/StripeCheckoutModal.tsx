@@ -7,9 +7,10 @@ import {
 } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { CreditCard, X, ShieldCheck, Lock, Sparkles } from 'lucide-react';
+import { startCheckoutSession } from '../../app/actions/stripe.ts';
 
-const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_live_51U0JtlGMZFe3OZW6ciQD5jP967DjUZlnpRWD8WvBfzu1bD2sCZxFlDufW9nySu7MJaHKP533fiDYXmBo87XX03EF00nODFh01E';
-const stripePromise = loadStripe(publishableKey);
+const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = publishableKey ? loadStripe(publishableKey) : null;
 
 interface StripeCheckoutModalProps {
   isOpen: boolean;
@@ -34,29 +35,17 @@ export default function StripeCheckoutModal({
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const response = await fetch('/api/stripe/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productName,
-          productDescription,
-          amount: Math.round(amount * 100), // cents or dollars handled in backend
-          currency: 'usd'
-        })
+      const clientSecret = await startCheckoutSession({
+        productName,
+        productDescription,
+        amount: Math.round(amount * 100),
+        currency: 'usd'
       });
-      const data = await response.json();
-      if (data.clientSecret) {
-        setClientSecret(data.clientSecret);
-        return data.clientSecret;
-      } else {
-        throw new Error(data.error || 'Failed to create checkout session');
-      }
+      setClientSecret(clientSecret);
+      return clientSecret;
     } catch (err: any) {
-      setErrorMsg(err.message || 'Network error initializing Stripe Checkout.');
-      // Fallback mock secret if network fails
-      const mockSecret = 'cs_test_mock_secret_' + Math.random().toString(36).substring(7);
-      setClientSecret(mockSecret);
-      return mockSecret;
+      setErrorMsg(err.message || 'Failed to initialize Stripe Checkout.');
+      throw err;
     } finally {
       setIsLoading(false);
     }
@@ -103,7 +92,7 @@ export default function StripeCheckoutModal({
             <div className="text-center py-8 space-y-4">
               <p className="text-xs text-slate-400">Click below to initialize your secure Stripe Embedded Checkout session.</p>
               <button
-                onClick={fetchClientSecret}
+                onClick={() => { fetchClientSecret().catch(() => {}); }}
                 className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-2xl transition-all shadow-xl shadow-amber-500/20 inline-flex items-center gap-2"
               >
                 <Sparkles className="w-4 h-4" />
@@ -120,8 +109,8 @@ export default function StripeCheckoutModal({
           )}
 
           {errorMsg && (
-            <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-300">
-              Note: {errorMsg} (Using sandbox fallback mode)
+            <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300">
+              {errorMsg}
             </div>
           )}
 
