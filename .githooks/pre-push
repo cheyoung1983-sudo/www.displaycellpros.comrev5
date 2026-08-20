@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Runs the same checks as .github/workflows/ci.yml before code leaves this
+# machine, so a broken push never shows up as a red "Node.js CI & Build" run.
+#
+# Installed automatically by `npm install` via the "prepare" script in
+# package.json (`git config core.hooksPath .githooks`). To skip it for a
+# single push (e.g. a WIP branch), use `git push --no-verify`.
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+echo "[pre-push] Lint & typecheck (tsc --noEmit)..."
+npm run lint
+
+echo "[pre-push] Unit tests (vitest)..."
+npm test
+
+echo "[pre-push] Production build..."
+npm run build
+
+echo "[pre-push] All checks passed."
