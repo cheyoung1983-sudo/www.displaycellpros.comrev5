@@ -96,7 +96,7 @@ Produce a structured JSON plan strictly matching this format:
           gemini.models.generateContent({
             model: 'gemini-2.0-flash-exp',
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: {
+            config: {
               responseMimeType: 'application/json',
             },
           }),
@@ -104,7 +104,7 @@ Produce a structured JSON plan strictly matching this format:
           null
         );
 
-        const replyText = response?.response?.text();
+        const replyText = response?.text;
         if (replyText) {
           const parsed = JSON.parse(replyText);
           return NextResponse.json({ success: true, path: parsed, modelUsed: 'gemini-2.0-flash-exp' });
