@@ -1,8 +1,23 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Route Handler for AI-powered hardware diagnostics.
+ * Integrates hardware telemetry with LLM analysis to provide technician insights.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { aiRateLimiterNext, diagnosticCache, withTimeout } from '../../../../src/lib/serverSecurity.ts';
 import { DiagnoseSchema } from '../../../../src/lib/schemas.ts';
 import { getOpenAI, getGemini } from '../../../../src/lib/aiClients.ts';
 
+/**
+ * POST /api/ai/diagnose
+ * Analyzes device telemetry and customer reports using Gemini or OpenAI.
+ *
+ * @param req - The Next.js request object containing diagnostic telemetry.
+ * @returns A JSON response with the diagnostic analysis or a fallback report.
+ */
 export async function POST(req: NextRequest) {
   const limited = aiRateLimiterNext.check(req);
   if (limited) return limited;
@@ -24,7 +39,7 @@ export async function POST(req: NextRequest) {
     if (gemini) {
       try {
         const prompt = `
-            You are the D&CP LLC Senior Technical Diagnostic Assistant (powered by Gemini 3.7 Flash).
+            You are the D&CP LLC Senior Technical Diagnostic Assistant (powered by Gemini 2.0 Flash).
             Analyze the following telemetry data and technician notes for a ${deviceModel || 'Device'} according to D&CP Engineering Specification Rev 4.0.
 
             INPUT DATA:
@@ -56,20 +71,20 @@ export async function POST(req: NextRequest) {
 
         const response = await withTimeout(
           gemini.models.generateContent({
-            model: 'gemini-3.7-flash',
-            contents: prompt,
+            model: 'gemini-2.0-flash-exp',
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
           }),
           6000,
           null
         );
 
-        const replyText = (response as any)?.text;
+        const replyText = response?.response?.text();
         if (replyText) {
           diagnosticCache.set(cacheKey, replyText);
-          return NextResponse.json({ analysis: replyText, modelUsed: 'gemini-3.7-flash' });
+          return NextResponse.json({ analysis: replyText, modelUsed: 'gemini-2.0-flash-exp' });
         }
       } catch (geminiErr) {
-        console.warn('Gemini 3.7 Flash diagnostic call failed, trying OpenAI:', geminiErr);
+        console.warn('Gemini 2.0 Flash diagnostic call failed, trying OpenAI:', geminiErr);
       }
     }
 

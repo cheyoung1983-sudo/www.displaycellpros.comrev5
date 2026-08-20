@@ -1,8 +1,23 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Route Handler for preliminary "Smart Triage" of hardware issues.
+ * Provides quick fault categorization and DIY advice for customers or intake staff.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { aiRateLimiterNext, triageCache, withTimeout } from '../../../../src/lib/serverSecurity.ts';
 import { SmartTriageSchema } from '../../../../src/lib/schemas.ts';
 import { getOpenAI } from '../../../../src/lib/aiClients.ts';
 
+/**
+ * POST /api/ai/smart-triage
+ * Categorizes a hardware issue and suggests initial troubleshooting steps.
+ *
+ * @param req - The request object containing the device model and symptom description.
+ * @returns A JSON response with the triage assessment.
+ */
 export async function POST(req: NextRequest) {
   const limited = aiRateLimiterNext.check(req);
   if (limited) return limited;

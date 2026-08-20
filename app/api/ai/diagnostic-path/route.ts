@@ -1,8 +1,23 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Route Handler for generating step-by-step diagnostic paths.
+ * Uses LLM-driven logic to create a technical plan for bench technicians.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { aiRateLimiterNext, withTimeout } from '../../../../src/lib/serverSecurity.ts';
 import { DiagnosticPathSchema } from '../../../../src/lib/schemas.ts';
 import { getOpenAI } from '../../../../src/lib/aiClients.ts';
 
+/**
+ * POST /api/ai/diagnostic-path
+ * Generates a structured diagnostic plan based on symptoms and telemetry.
+ *
+ * @param req - The request object containing repair notes and symptoms.
+ * @returns A JSON response with the recommended diagnostic path.
+ */
 export async function POST(req: NextRequest) {
   const limited = aiRateLimiterNext.check(req);
   if (limited) return limited;

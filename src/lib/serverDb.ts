@@ -68,6 +68,12 @@ function createPoolConfig(
   };
 }
 
+/**
+ * Retrieves the primary database connection pool.
+ * Uses AWS RDS IAM authentication (Signer) when running in production/Vercel.
+ *
+ * @returns {Pool} The PostgreSQL connection pool.
+ */
 export function getDatabasePool(): Pool {
   if (!poolInstance) {
     const host = process.env.PGHOST || "dcp-production-db.cluster-cs7wcksg2js1.us-east-1.rds.amazonaws.com";
@@ -114,6 +120,12 @@ export function getDatabasePool(): Pool {
   return poolInstance;
 }
 
+/**
+ * Retrieves the read-only database replica pool.
+ * Falls back to the primary cluster if the read replica is unavailable.
+ *
+ * @returns {Pool} The read-only PostgreSQL connection pool.
+ */
 export function getReadOnlyDatabasePool(): Pool {
   if (!readOnlyPoolInstance) {
     const host = process.env.PGHOST_READ_ONLY || "dcp-production-db.cluster-ro-cs7wcksg2js1.us-east-1.rds.amazonaws.com";
@@ -160,6 +172,15 @@ export function getReadOnlyDatabasePool(): Pool {
   return readOnlyPoolInstance;
 }
 
+/**
+ * Executes a SQL query against the primary database cluster.
+ * Includes automatic transient error retries and pool saturation checks.
+ *
+ * @param sql - The SQL statement to execute.
+ * @param args - Parameterized query arguments.
+ * @param retries - Number of retry attempts for transient failures.
+ * @returns {Promise<any>} The query results.
+ */
 export async function query(sql: string, args: unknown[] = [], retries = 2): Promise<any> {
   totalQueriesExecuted++;
   const pool = getDatabasePool();
@@ -340,6 +361,12 @@ export interface MigrationResult {
   error?: string;
 }
 
+/**
+ * Runs the database migration to ensure the `supported_devices` table and its indexes exist.
+ * This migration is idempotent and safe to run on application startup.
+ *
+ * @returns {Promise<MigrationResult>} The result of the migration execution.
+ */
 export async function runSupportedDevicesIndexMigration(): Promise<MigrationResult> {
   const appliedIndexes = [
     'idx_supported_devices_device_model',
