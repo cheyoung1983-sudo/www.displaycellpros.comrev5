@@ -29,7 +29,7 @@ npm run test                      # vitest run
 npx vitest run path/to/file.test.ts   # run a single test file
 ```
 
-CI (`.github/workflows/webpack.yml`, on push/PR to `main`, matrix Node 20.x/22.x) runs: `npm install` → `npm run lint` → `npm run test` → `npm run build`.
+CI (`.github/workflows/webpack.yml`, on push/PR to `main`, matrix Node 22.x/24.x) runs: `npm install` → `npm run lint` → `npm run test` → `npm run build`.
 
 ## Architecture (same as `rev4` — see that repo's CLAUDE.md for full detail)
 
