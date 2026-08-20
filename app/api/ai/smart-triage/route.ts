@@ -72,7 +72,7 @@ Return ONLY a valid JSON object matching this schema (no markdown code fences):
           gemini.models.generateContent({
             model: 'gemini-2.0-flash-exp',
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: {
+            config: {
               responseMimeType: 'application/json',
             },
           }),
@@ -80,7 +80,7 @@ Return ONLY a valid JSON object matching this schema (no markdown code fences):
           null
         );
 
-        const replyText = response?.response?.text();
+        const replyText = response?.text;
         if (replyText) {
           const parsed = JSON.parse(replyText);
           triageCache.set(cacheKey, parsed);
