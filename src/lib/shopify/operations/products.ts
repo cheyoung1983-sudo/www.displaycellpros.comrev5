@@ -1,3 +1,5 @@
+import { shopifyFetch } from '../../shopify.ts';
+
 export interface ShopifyProduct {
   id: string;
   handle: string;
@@ -28,61 +30,12 @@ export interface ShopifyProduct {
   }>;
 }
 
-const DEFAULT_STORE_DOMAIN =
-  process.env.SHOPIFY_STORE_DOMAIN ||
-  process.env.DCP_SANDBOX_SHOPIFY_STORE_DOMAIN ||
-  "vercel-store-34d604b7-q6ui4f53.myshopify.com";
-const DEFAULT_STOREFRONT_TOKEN =
-  process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN ||
-  process.env.DCP_SANDBOX_SHOPIFY_STOREFRONT_ACCESS_TOKEN ||
-  "cda195dfcf9e55984c840562aaeafa85";
-
-export async function shopifyFetch<T>({
-  query,
-  variables,
-}: {
-  query: string;
-  variables?: Record<string, any>;
-}): Promise<T | null> {
-  const domain =
-    process.env.SHOPIFY_STORE_DOMAIN ||
-    process.env.DCP_SANDBOX_SHOPIFY_STORE_DOMAIN ||
-    DEFAULT_STORE_DOMAIN;
-  const token =
-    process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN ||
-    process.env.DCP_SANDBOX_SHOPIFY_STOREFRONT_ACCESS_TOKEN ||
-    DEFAULT_STOREFRONT_TOKEN;
-
-  const endpoint = `https://${domain.replace(/^https?:\/\//, '')}/api/2024-01/graphql.json`;
-
-  try {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Storefront-Access-Token": token,
-      },
-      body: JSON.stringify({ query, variables }),
-      next: { revalidate: 60 },
-    } as any);
-
-    if (!res.ok) {
-      console.error(`Shopify API error: ${res.status} ${res.statusText}`);
-      return null;
-    }
-
-    const json = await res.json();
-    if (json.errors) {
-      console.error("Shopify GraphQL errors:", json.errors);
-      return null;
-    }
-
-    return json.data as T;
-  } catch (error) {
-    console.error("Error fetching from Shopify Storefront API:", error);
-    return null;
-  }
-}
+/**
+ * Delegates to the single Storefront client in `src/lib/shopify.ts`. This file
+ * used to carry its own copy of the credential resolution, hardcoded store
+ * fallbacks, and an API-version pin that had drifted to an unsupported 2024-01
+ * — three things to keep in sync instead of one.
+ */
 
 export async function getProduct(
   handle: string,
@@ -130,10 +83,13 @@ export async function getProduct(
     }
   `;
 
-  const data = await shopifyFetch<{ product: any }>({
-    query,
-    variables: { handle },
-  });
+  let data: { product: any } | null = null;
+  try {
+    data = await shopifyFetch<{ product: any }>(query, { handle });
+  } catch (error) {
+    console.error('[shopify] getProduct failed:', error);
+    return null;
+  }
 
   if (!data || !data.product) {
     return null;

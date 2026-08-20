@@ -6,13 +6,21 @@ on:
   pull_request:
     branches: [ "main" ]
 
+# A newer push to the same branch makes the in-flight run obsolete.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     strategy:
+      # Report every Node version's result, not just the first failure —
+      # a version-specific break is otherwise invisible.
+      fail-fast: false
       matrix:
-        node-version: [20.x, 22.x]
+        node-version: [22.x, 24.x]
 
     steps:
     - uses: actions/checkout@v4
@@ -23,8 +31,11 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
 
+    # `npm ci` installs strictly from package-lock.json and fails if the two
+    # have drifted, so CI builds what the lockfile pins. `npm install` would
+    # silently resolve newer versions and rewrite the lockfile in place.
     - name: Install dependencies
-      run: npm install
+      run: npm ci
 
     - name: Lint & Typecheck
       run: npm run lint

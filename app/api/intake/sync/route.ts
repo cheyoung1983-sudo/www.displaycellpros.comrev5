@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { formRateLimiterNext } from '../../../../src/lib/serverSecurity.ts';
 import { IntakeFormSchema } from '../../../../src/types.ts';
-import { shopifyFetch } from '../../../../src/lib/shopify.ts';
+import { shopifyFetch, isShopifyConfigured } from '../../../../src/lib/shopify.ts';
 import { PRODUCTS_QUERY, CREATE_CART_WITH_INPUT_MUTATION } from '../../../../src/lib/shopify-queries.ts';
 import type { Product, Cart } from '../../../../src/lib/shopify-types.ts';
 
@@ -117,9 +117,30 @@ export async function POST(req: NextRequest) {
     photoCategories: photoMetadata.categories,
   });
 
-  const hasShopifyCreds = !!process.env.SHOPIFY_STORE_DOMAIN && !!process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN;
+  // Ask the Shopify client itself whether it can make a call, rather than
+  // re-deriving it from environment variables here. When this check and the
+  // client's own credential resolution drift apart, they disagree about which
+  // store is in play — and the customer is the one who finds out.
+  if (!isShopifyConfigured()) {
+    // The placeholder below hands back a checkout URL that goes nowhere. That
+    // is a reasonable stand-in for local development, but in production it
+    // would tell a real customer their order was provisioned when no order
+    // exists, so fail loudly there instead.
+    if (process.env.NODE_ENV === 'production') {
+      console.error(
+        'Intake sync reached production without Shopify credentials — ' +
+          'set SHOPIFY_STORE_DOMAIN and SHOPIFY_STOREFRONT_ACCESS_TOKEN.'
+      );
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Online checkout is temporarily unavailable. Your intake has not been submitted — please contact the Spokane Lab directly.',
+        },
+        { status: 503 }
+      );
+    }
 
-  if (!hasShopifyCreds) {
     const draftOrderId = `gid://shopify/DraftOrder/${Math.floor(100000000 + Math.random() * 900000000)}`;
     return NextResponse.json({
       success: true,
