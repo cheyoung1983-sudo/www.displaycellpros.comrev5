@@ -13,4 +13,5 @@ bun.lockb
 !.env.example
 
 .vercel
-.env*
+.idea/
+.git.corrupted-backup-*/
