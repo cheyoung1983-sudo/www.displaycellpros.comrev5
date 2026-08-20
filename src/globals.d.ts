@@ -1,6 +1,3 @@
-declare module '*.css';
-declare module 'jsqr';
-
 declare global {
   interface Window {
     grecaptcha: {
