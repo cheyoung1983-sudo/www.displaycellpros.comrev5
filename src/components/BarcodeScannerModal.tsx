@@ -151,11 +151,13 @@ export default function BarcodeScannerModal({
         const config = {
           fps: 15,
           qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            // Adaptive rectangular aspect for barcodes and QR codes
+            // Adaptive rectangular aspect for barcodes and QR codes.
+            // Clamped to html5-qrcode's 50px minimum in case the viewport
+            // container hasn't finished laying out when start() measures it.
             const minDim = Math.min(viewfinderWidth, viewfinderHeight);
             return {
-              width: Math.floor(minDim * 0.85),
-              height: Math.floor(minDim * 0.65)
+              width: Math.max(50, Math.floor(minDim * 0.85)),
+              height: Math.max(50, Math.floor(minDim * 0.65))
             };
           },
           aspectRatio: 1.333334
@@ -289,7 +291,7 @@ export default function BarcodeScannerModal({
 
         {/* Optical Camera Viewport */}
         <div className="relative bg-slate-950 rounded-3xl overflow-hidden min-h-[280px] flex items-center justify-center border-2 border-slate-800 shadow-inner">
-          <div id="barcode-camera-viewport" className="w-full h-full [&_video]:object-cover [&_video]:rounded-2xl" />
+          <div id="barcode-camera-viewport" className="absolute inset-0 [&_video]:w-full [&_video]:h-full [&_video]:object-cover [&_video]:rounded-2xl" />
 
           {/* Real-Time Laser Scanning Reticle */}
           {isScanning && !scannedResult && !scannerError && (

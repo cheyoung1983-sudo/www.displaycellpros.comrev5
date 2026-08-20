@@ -7,16 +7,20 @@ export function useLocalStorage<T>(
   key: string,
   initialValue: T
 ): [T, (value: T | ((val: T) => T)) => void, () => void] {
-  const [storedValue, setStoredValue] = useState<T>(() => {
+  // Always initialize with initialValue so the first client render matches
+  // the server-rendered HTML exactly (avoids a hydration mismatch); the real
+  // persisted value is read after mount in the effect below.
+  const [storedValue, setStoredValue] = useState<T>(initialValue);
+
+  useEffect(() => {
     try {
-      if (typeof window === 'undefined') return initialValue;
       const item = window.localStorage.getItem(key);
-      return item !== null ? JSON.parse(item) : initialValue;
+      if (item !== null) setStoredValue(JSON.parse(item));
     } catch (error) {
       console.warn(`Error reading localStorage key "${key}":`, error);
-      return initialValue;
     }
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   const setValue = (value: T | ((val: T) => T)) => {
     try {

@@ -172,7 +172,7 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess }: QRSca
 
         {/* Viewport Box */}
         <div className="relative bg-slate-900 rounded-3xl overflow-hidden min-h-[280px] flex items-center justify-center border-2 border-slate-800">
-          <div id="qr-reader-element" className="w-full h-full [&_video]:object-cover [&_video]:rounded-2xl" />
+          <div id="qr-reader-element" className="absolute inset-0 [&_video]:w-full [&_video]:h-full [&_video]:object-cover [&_video]:rounded-2xl" />
 
           {/* Target Reticle Overlay */}
           {isScanning && !scannedResult && !scannerError && (

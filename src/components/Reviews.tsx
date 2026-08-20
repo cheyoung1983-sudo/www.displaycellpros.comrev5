@@ -627,6 +627,9 @@ export default function Reviews() {
               <ShoppingBag className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
+                id="custom-niche-input"
+                name="custom-niche-input"
+                aria-label="Custom Shopify store product niche"
                 value={customNicheInput}
                 onChange={(e) => setCustomNicheInput(e.target.value)}
                 placeholder="Type your custom Shopify store product niche (e.g. Custom Mechanical Keyboards, Organic Matcha, Scented Candles)..."
@@ -684,8 +687,10 @@ export default function Reviews() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sort:</span>
+            <label htmlFor="testimonial-sort" className="text-xs font-bold text-slate-600 uppercase tracking-wider">Sort:</label>
             <select
+              id="testimonial-sort"
+              name="testimonial-sort"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
               className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-slate-900"

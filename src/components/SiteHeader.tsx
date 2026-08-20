@@ -124,7 +124,12 @@ export function SiteHeader() {
         {/* Mobile Actions */}
         <div className="flex md:hidden items-center gap-2">
           <Auth0UserButton />
-          <button className="p-2" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+          <button
+            type="button"
+            className="p-2"
+            aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
             {isMenuOpen ? <X /> : <Menu />}
           </button>
         </div>
