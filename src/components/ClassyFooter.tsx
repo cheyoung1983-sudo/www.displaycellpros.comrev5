@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 import { Cpu, ArrowUp, ShieldCheck, Award, Building, Lock } from 'lucide-react';
 import { COMPANY_INFO, FEDERAL_CREDENTIALS } from '../data/companyData';

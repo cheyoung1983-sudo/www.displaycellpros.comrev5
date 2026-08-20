@@ -1,7 +1,12 @@
+"use client";
+
 import React from 'react';
 import { motion } from 'motion/react';
 import { Quote, Sparkles, ShieldCheck, Terminal, Award, CheckCircle2, ArrowRight } from 'lucide-react';
-import ryanYoungImage from '../assets/images/regenerated_image_1786855135392.jpg';
+import ryanYoungImageSrc from '../assets/images/regenerated_image_1786855135392.jpg';
+import { staticImageSrc } from '../utils/staticImage.ts';
+
+const ryanYoungImage = staticImageSrc(ryanYoungImageSrc);
 
 interface FounderMessageProps {
   onLearnMoreProtocol?: () => void;

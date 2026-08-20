@@ -1,6 +1,9 @@
 node_modules/
 build/
 dist/
+.next/
+next-env.d.ts
+*.tsbuildinfo
 coverage/
 .DS_Store
 *.log
@@ -8,4 +11,7 @@ bun.lock
 bun.lockb
 .env*
 !.env.example
+
 .vercel
+.idea/
+.git.corrupted-backup-*/

@@ -141,6 +141,21 @@ export const CREATE_CART_MUTATION = `
   ${CART_FRAGMENT}
 `;
 
+export const CREATE_CART_WITH_INPUT_MUTATION = `
+  mutation CartCreateWithInput($input: CartInput!) {
+    cartCreate(input: $input) {
+      cart {
+        ...CartFields
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+  ${CART_FRAGMENT}
+`;
+
 export const ADD_TO_CART_MUTATION = `
   mutation CartLinesAdd($cartId: ID!, $lines: [CartLineInput!]!) {
     cartLinesAdd(cartId: $cartId, lines: $lines) {

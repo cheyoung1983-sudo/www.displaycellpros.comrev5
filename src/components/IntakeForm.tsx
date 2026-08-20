@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -523,7 +525,26 @@ export default function IntakeForm() {
     if (step === 3) fieldsToValidate = ['waR2rPrivacyAcknowledged', 'waR2rDataBackupAcknowledged', 'waR2rPartsProvenanceAcknowledged', 'customerEmail', 'customerName', 'customerPhone', 'destinationZipCode'];
 
     const isValid = await trigger(fieldsToValidate as any);
-    if (isValid) setStep(s => s + 1);
+    if (isValid) {
+      setStep(s => s + 1);
+      return;
+    }
+
+    if (step === 2) {
+      // The Service Tier picker and Issue Description field (the two most
+      // commonly missed required fields) only render on the 'telemetry'
+      // sub-tab, so jump back there and tell the user what's missing —
+      // otherwise validation fails silently while they're on another
+      // diagnostics sub-tab with no visible error.
+      setTriageSubTab('telemetry');
+      if (!formData.serviceTier) {
+        showToast('Select a Service Tier before continuing.', 'error');
+      } else if (!formData.customerReportedIssue || formData.customerReportedIssue.trim().length < 10) {
+        showToast('Issue Description needs at least 10 characters before continuing.', 'error');
+      } else {
+        showToast('Please resolve the highlighted fields before continuing.', 'error');
+      }
+    }
   };
 
   const prevStep = () => setStep(s => s - 1);
@@ -644,8 +665,14 @@ export default function IntakeForm() {
           attachedPhotoCount: devicePhotos.length
         });
 
-        showToast(`Device intake synchronized with Spokane Lab (${devicePhotos.length} photos, ${selectedFailurePointIds.length} failure points attached).`, 'success');
+        if (res.matched === false) {
+          showToast(res.message || 'Intake recorded, but this repair needs manual checkout — a technician will reach out.', 'info');
+        } else {
+          showToast(`Device intake synchronized with Spokane Lab (${devicePhotos.length} photos, ${selectedFailurePointIds.length} failure points attached).`, 'success');
+        }
         setStep(5);
+      } else {
+        showToast(res.error || 'Could not synchronize intake. Please try again.', 'error');
       }
     } catch (error) {
       console.error('Sync failed:', error);
@@ -1688,16 +1715,24 @@ export default function IntakeForm() {
                 </div>
               </div>
 
+              {!result.invoiceUrl && (
+                <div className="w-full max-w-md bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-800">
+                  This repair isn't available for instant online checkout yet. A Spokane Lab technician will contact you directly to arrange payment.
+                </div>
+              )}
+
               <div className="flex gap-4">
-                <a 
-                  href={result.invoiceUrl} 
-                  target="_blank" 
-                  className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl shadow-slate-900/20 hover:bg-slate-800 transition-all flex items-center gap-2"
-                >
-                  View Checkout Link
-                  <ChevronRight className="w-5 h-5" />
-                </a>
-                <button 
+                {result.invoiceUrl && (
+                  <a
+                    href={result.invoiceUrl}
+                    target="_blank"
+                    className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl shadow-slate-900/20 hover:bg-slate-800 transition-all flex items-center gap-2"
+                  >
+                    View Checkout Link
+                    <ChevronRight className="w-5 h-5" />
+                  </a>
+                )}
+                <button
                   onClick={() => window.location.reload()}
                   className="px-8 py-4 bg-white border-2 border-slate-100 text-slate-900 rounded-2xl font-bold hover:bg-slate-50 transition-all"
                 >

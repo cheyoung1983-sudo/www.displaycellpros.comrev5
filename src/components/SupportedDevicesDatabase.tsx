@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useMemo, FC } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {

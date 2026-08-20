@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { HelpCircle, ChevronDown, Clock, ShieldCheck, Lock, Truck, Award, CreditCard } from 'lucide-react';
 import { FEDERAL_CREDENTIALS } from '../data/companyData';

@@ -1,7 +1,12 @@
+"use client";
+
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import ryanYoungAvatar from '../assets/images/regenerated_image_1786855135392.jpg';
+import ryanYoungAvatarSrc from '../assets/images/regenerated_image_1786855135392.jpg';
+import { staticImageSrc } from '../utils/staticImage.ts';
 import { useToast } from './Toast.tsx';
+
+const ryanYoungAvatar = staticImageSrc(ryanYoungAvatarSrc);
 import { 
   Send, 
   User, 

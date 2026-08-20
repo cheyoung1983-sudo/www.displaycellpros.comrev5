@@ -17,42 +17,28 @@ export function getAuroraPool(): Pool {
     return poolInstance;
   }
 
-  const hostname = process.env.PGHOST;
+  const hostname = process.env.PGHOST || "dcp-production-db.cluster-cs7wcksg2js1.us-east-1.rds.amazonaws.com";
   const port = Number(process.env.PGPORT || 5432);
-  const username = process.env.PGUSER;
-  const region = process.env.AWS_REGION;
-  const roleArn = process.env.AWS_ROLE_ARN;
-  const database = process.env.PGDATABASE;
-  const password = process.env.PGPASSWORD;
+  const username = process.env.PGUSER || "postgres";
+  const region = process.env.AWS_REGION || "us-east-1";
+  const roleArn = process.env.AWS_ROLE_ARN || "arn:aws:iam::595710543826:role/Vercel/access-dcp-production-db";
 
-  if (!hostname || !username || !database) {
-    throw new Error("Aurora PostgreSQL requires host, user, and database configuration");
-  }
-  if ((!region || !roleArn) && !password) {
-    throw new Error("Aurora PostgreSQL requires AWS IAM configuration or explicit PGPASSWORD for local development");
-  }
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error(`Invalid Aurora PostgreSQL port: ${port}`);
-  }
-
-  const signer = region && roleArn
-    ? new Signer({
-        hostname,
-        port,
-        username,
-        region,
-        credentials: awsCredentialsProvider({
-          roleArn,
-          clientConfig: { region },
-        }),
-      })
-    : null;
+  const signer = new Signer({
+    hostname,
+    port,
+    username,
+    region,
+    credentials: awsCredentialsProvider({
+      roleArn,
+      clientConfig: { region },
+    }),
+  });
 
   poolInstance = new Pool({
     host: hostname,
     user: username,
-    database,
-    password: signer ? () => signer.getAuthToken() : password,
+    database: process.env.PGDATABASE || "postgres",
+    password: () => signer.getAuthToken(),
     port,
     ssl: { rejectUnauthorized: false },
     max: 20,

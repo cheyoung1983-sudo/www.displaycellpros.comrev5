@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useRef } from "react";
 import { Send, X, Cpu, Terminal } from "lucide-react";
 
