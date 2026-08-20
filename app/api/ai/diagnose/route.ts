@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
           null
         );
 
-        const replyText = response?.text;
+        const replyText = response?.response?.text();
         if (replyText) {
           diagnosticCache.set(cacheKey, replyText);
           return NextResponse.json({ analysis: replyText, modelUsed: 'gemini-2.0-flash-exp' });
