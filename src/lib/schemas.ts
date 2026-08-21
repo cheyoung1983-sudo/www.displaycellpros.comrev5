@@ -67,3 +67,7 @@ export const SupportChatSchema = z.object({
   })).max(50).optional().default([]),
   ticketId: z.string().max(50).optional(),
 });
+
+export const DataExpertQuerySchema = z.object({
+  question: z.string().min(1, 'A question is required').max(1000),
+});
