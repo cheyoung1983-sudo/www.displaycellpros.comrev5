@@ -1,5 +1,32 @@
 import { z } from 'zod';
 
+// --- Triage AI (ElevenLabs conversational agent) tool schemas ---
+
+export const RepairQuoteSchema = z.object({
+  device_brand: z.enum(['Apple', 'Samsung', 'Google', 'Motorola', 'Other']),
+  device_model: z.string().min(1).max(120),
+  repair_type: z.enum(['screen_aftermarket', 'screen_oem', 'battery', 'charging_port', 'camera', 'back_glass']),
+  is_b2b: z.boolean().optional().default(false),
+  zip_code: z.string().regex(/^\d{5}$/, 'zip_code must be 5 digits').optional().default('99201'),
+});
+
+export const DispatchBookingLinkSchema = z.object({
+  customer_name: z.string().min(1).max(200),
+  customer_phone: z.string().regex(/^\+1\d{10}$/, 'customer_phone must be E.164 US format, e.g. +15095550199'),
+  device_summary: z.string().min(1).max(500),
+  quoted_price: z.number().min(0),
+  service_tier: z.string().max(100).optional().default(''),
+  location_address: z.string().max(300).optional().default(''),
+});
+
+export const EscalateTier3TicketSchema = z.object({
+  customer_name: z.string().min(1).max(200),
+  customer_phone: z.string().regex(/^\+1\d{10}$/, 'customer_phone must be E.164 US format, e.g. +15095550199'),
+  device_model: z.string().min(1).max(120),
+  failure_symptoms: z.string().min(1).max(2000),
+  intake_notes: z.string().max(2000).optional().default(''),
+});
+
 export const TelemetrySchema = z.object({
   batteryHealthPercentage: z.number().min(0).max(100).optional().default(90),
   batteryTempCelsius: z.number().min(-50).max(150).optional().default(22),
