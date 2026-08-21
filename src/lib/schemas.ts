@@ -67,3 +67,19 @@ export const SupportChatSchema = z.object({
   })).max(50).optional().default([]),
   ticketId: z.string().max(50).optional(),
 });
+
+export const DataExpertQuerySchema = z.object({
+  question: z.string().min(1, 'A question is required').max(1000),
+});
+
+export const ErasureCertificateRequestSchema = z.object({
+  deviceIdentifier: z.string().min(1, 'Device serial number or IMEI is required').max(255),
+  sanitizationType: z.enum(['Clear', 'Purge']),
+});
+
+export const TelemetryIngestSchema = z.object({
+  deviceId: z.string().min(1, 'deviceId is required').max(255),
+  vTerm: z.number(),
+  currentDraw: z.number(),
+  thermalReading: z.number(),
+});
