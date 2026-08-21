@@ -8,7 +8,7 @@ export function VercelAnalyticsGate() {
   const [shouldMount, setShouldMount] = useState(false);
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'production' && window.location.hostname.includes('vercel')) {
+    if (process.env.NODE_ENV === 'production') {
       setShouldMount(true);
     }
   }, []);

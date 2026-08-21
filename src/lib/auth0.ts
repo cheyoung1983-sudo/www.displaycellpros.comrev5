@@ -1,5 +1,13 @@
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
 export const auth0Config = {
-  domain: process.env.AUTH0_DOMAIN || process.env.VITE_AUTH0_DOMAIN || 'icfg-lpfzl6ejhmeudwfnf0rviy2r.us.auth0.com',
-  clientId: process.env.AUTH0_CLIENT_ID || process.env.VITE_AUTH0_CLIENT_ID || 'iHyCQzrHYenv4lrkCFy4v9528jtJUUHl',
+  domain: requireEnv('AUTH0_DOMAIN'),
+  clientId: requireEnv('AUTH0_CLIENT_ID'),
 };
 
