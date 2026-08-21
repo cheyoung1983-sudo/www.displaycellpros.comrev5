@@ -6,6 +6,20 @@ export async function POST(req: NextRequest) {
   const limited = aiRateLimiterNext.check(req);
   if (limited) return limited;
 
+  const { auth0 } = await import('../../../../src/lib/auth0Server.ts');
+  const session = await auth0.getSession(req);
+  if (!session?.user?.email) {
+    return NextResponse.json(
+      { success: false, error: 'Sign in required to use the Data Expert.' },
+      { status: 401 }
+    );
+  }
+
+  const { evaluateUserRbac } = await import('../../../../src/lib/auth0Rbac.ts');
+  const rbac = evaluateUserRbac(session.user);
+  const isTechnician = rbac.isSuperAdmin || rbac.hasDcpPermission;
+  const callerEmail = session.user.email;
+
   const body = await req.json().catch(() => ({}));
   const parsed = DataExpertQuerySchema.safeParse(body);
   if (!parsed.success) {
@@ -16,7 +30,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { dataExpertAgent } = await import('../../../../src/lib/agents/dataExpertAgent.ts');
+    const { createDataExpertAgent } = await import('../../../../src/lib/agents/dataExpertAgent.ts');
+    const dataExpertAgent = createDataExpertAgent({ callerEmail, isTechnician });
+
     const result = await withTimeout(
       dataExpertAgent.generate({ prompt: parsed.data.question }),
       20000,

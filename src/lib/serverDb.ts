@@ -514,6 +514,12 @@ CREATE TABLE IF NOT EXISTS diagnostic_sessions (
 
 CREATE INDEX IF NOT EXISTS idx_diagnostic_sessions_telemetry ON diagnostic_sessions USING GIN (telemetry_snapshot);
 CREATE INDEX IF NOT EXISTS idx_diagnostic_sessions_technician_id ON diagnostic_sessions (technician_id);
+
+-- The Triage AI voice-channel tools (dispatch_booking_link, escalate_tier3_ticket)
+-- collect a phone number but not necessarily an email — relax the NOT NULL
+-- constraint so those leads can be persisted here too instead of only in the
+-- in-memory bookingDispatchLog/tier3EscalationLog.
+ALTER TABLE repair_tickets ALTER COLUMN customer_email DROP NOT NULL;
 `;
 
 /**
