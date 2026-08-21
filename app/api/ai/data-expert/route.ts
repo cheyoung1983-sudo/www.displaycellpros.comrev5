@@ -6,7 +6,17 @@ export async function POST(req: NextRequest) {
   const limited = aiRateLimiterNext.check(req);
   if (limited) return limited;
 
-  const { auth0 } = await import('../../../../src/lib/auth0Server.ts');
+  const { auth0, isAuth0ServerConfigured } = await import('../../../../src/lib/auth0Server.ts');
+  if (!isAuth0ServerConfigured()) {
+    // auth0.getSession() throws a DomainResolutionError on every call when
+    // AUTH0_DOMAIN/AUTH0_CLIENT_ID/AUTH0_SECRET aren't set - reject gracefully
+    // instead of 500ing, matching the pattern middleware.ts uses.
+    return NextResponse.json(
+      { success: false, error: 'The Data Expert is not available in this environment (Auth0 not configured).' },
+      { status: 503 }
+    );
+  }
+
   const session = await auth0.getSession(req);
   if (!session?.user?.email) {
     return NextResponse.json(
