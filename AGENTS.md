@@ -22,7 +22,7 @@ Other scripts under `scripts/` are one-off ops utilities (DB setup/connection ch
 
 ### CI and the pre-push hook
 
-`.github/workflows/ci.yml` ("Node.js CI & Build") runs on push/PR to `main` against a Node 20.x/22.x matrix: `npm install` → `npm run lint` → `npm test` → `npm run build`, in that order. `npm install` also runs a `prepare` script that points `core.hooksPath` at the committed `.githooks/` directory, so `.githooks/pre-push` runs the same three checks locally before a `git push` leaves the machine — a push that would fail CI fails locally first instead. Use `git push --no-verify` to bypass it intentionally (e.g. a WIP branch); don't reach for that to work around a real failure.
+`.github/workflows/ci.yml` ("Node.js CI & Build") runs on push/PR to `main` against a Node 22.x/24.x matrix: `npm install` → `npm run lint` → `npm test` → `npm run build`, in that order. `npm install` also runs a `prepare` script that points `core.hooksPath` at the committed `.githooks/` directory, so `.githooks/pre-push` runs the same three checks locally before a `git push` leaves the machine — a push that would fail CI fails locally first instead. Use `git push --no-verify` to bypass it intentionally (e.g. a WIP branch); don't reach for that to work around a real failure.
 
 ## Architecture
 
