@@ -34,6 +34,7 @@
     "@vercel/connect": "^0.8.0",
     "@vercel/functions": "^3.9.5",
     "@vercel/speed-insights": "^2.0.0",
+    "ai": "^7.0.73",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",

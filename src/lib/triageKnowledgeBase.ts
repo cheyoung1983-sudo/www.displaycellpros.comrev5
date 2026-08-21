@@ -20,7 +20,7 @@ const STOPWORDS = new Set([
 
 function tokenize(text: string): string[] {
   return (text.toLowerCase().match(/[a-z0-9]+/g) || []).filter(
-    (t) => t.length > 2 && !STOPWORDS.has(t)
+    (t: string) => t.length > 2 && !STOPWORDS.has(t)
   );
 }
 

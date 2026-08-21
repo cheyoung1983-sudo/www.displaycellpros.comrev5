@@ -7,9 +7,22 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { aiRateLimiterNext, triageCache, withTimeout } from '../../../../src/lib/serverSecurity.ts';
 import { SmartTriageSchema } from '../../../../src/lib/schemas.ts';
-import { getOpenAI, getGemini } from '../../../../src/lib/aiClients.ts';
+import { HARDWARE_FAILURE_KNOWLEDGE } from '../../../../src/lib/knowledge/hardwareFailureKnowledge.ts';
+
+const TRIAGE_AI_MODEL = 'anthropic/claude-sonnet-5';
+
+const SmartTriageResultSchema = z.object({
+  suspectedFault: z.string(),
+  recommendedTier: z.enum(['TIER_1_POWER_PORT_REFRESH', 'TIER_2_DISPLAY_RENEWAL', 'TIER_3_MICRO_SOLDERING']),
+  recommendedTierLabel: z.string(),
+  confidenceScore: z.number().min(0).max(100),
+  summary: z.string(),
+  diyInitialSteps: z.array(z.string()),
+  technicianChecklistAdvice: z.array(z.string()),
+});
 
 /**
  * POST /api/ai/smart-triage
@@ -39,95 +52,36 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const knowledgeBaseSection = retrievedContext && retrievedContext.length > 0
-      ? `\nRETRIEVED KNOWLEDGE BASE CONTEXT (from the on-file device/repair database, ranked by relevance to this query):\n${retrievedContext.map((c, i) => `${i + 1}. ${c}`).join('\n')}\nGround your diagnosis in this context when it matches the reported symptoms; do not invent device-specific facts that contradict it.\n`
+    const { generateText, Output } = await import('ai');
+
+    const retrievedContextSection = retrievedContext && retrievedContext.length > 0
+      ? `\n\nRETRIEVED KNOWLEDGE BASE CONTEXT (from the on-file device/repair database, ranked by relevance to this query):\n${retrievedContext.map((c, i) => `${i + 1}. ${c}`).join('\n')}\nGround your diagnosis in this context when it matches the reported symptoms; do not invent device-specific facts that contradict it.`
       : '';
 
-    const prompt = `
-You are the Lead Hardware Triage Specialist at D&CP Spokane Lab.
-Analyze the user's reported device symptoms and model to suggest likely issue categories, service tier, confidence score, and initial DIY troubleshooting steps.
+    const prompt = `Analyze the user's reported device symptoms and model to suggest a likely issue category, service tier, confidence score, and initial DIY troubleshooting steps.
 
 Device Model: "${deviceModel || 'Unspecified Mobile/Computer Unit'}"
-Symptom Description: "${symptomDescription}"
-${knowledgeBaseSection}
-Return ONLY a valid JSON object matching this schema (no markdown code fences):
-{
-  "suspectedFault": "Brief title of primary suspected fault",
-  "recommendedTier": "TIER_1_POWER_PORT_REFRESH" | "TIER_2_DISPLAY_RENEWAL" | "TIER_3_MICRO_SOLDERING",
-  "recommendedTierLabel": "Tier 1 (Power/Port Refresh)" | "Tier 2 (Display Renewal)" | "Tier 3 (Board Rework)",
-  "confidenceScore": 88,
-  "summary": "2-3 sentence technical diagnosis explaining why this fault is suspected and what bench tests will verify it.",
-  "diyInitialSteps": [
-    "Step 1: First non-destructive troubleshooting action",
-    "Step 2: Second diagnostic check",
-    "Step 3: Pre-intake safety precaution"
-  ],
-  "technicianChecklistAdvice": [
-    "Checklist item 1 to inspect",
-    "Checklist item 2 to measure"
-  ]
-}
-          `;
+Symptom Description: "${symptomDescription}"`;
 
-    const gemini = getGemini();
-    if (gemini) {
-      try {
-        const response = await withTimeout(
-          gemini.models.generateContent({
-            model: 'gemini-2.0-flash-exp',
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            config: {
-              responseMimeType: 'application/json',
-            },
-          }),
-          6000,
-          null
-        );
+    const aiPromise = generateText({
+      model: TRIAGE_AI_MODEL,
+      instructions: `You are the Lead Hardware Triage Specialist at D&CP Spokane Lab. Ground your suspected fault and confidence in the knowledge base below — do not invent a component or failure mechanism that isn't supported by it.\n\n${HARDWARE_FAILURE_KNOWLEDGE}${retrievedContextSection}`,
+      prompt,
+      temperature: 0.2,
+      output: Output.object({ schema: SmartTriageResultSchema }),
+    });
 
-        const replyText = response?.text;
-        if (replyText) {
-          const parsed = JSON.parse(replyText);
-          triageCache.set(cacheKey, parsed);
-          return NextResponse.json({ success: true, triage: parsed, modelUsed: 'gemini-2.0-flash-exp' });
-        }
-      } catch (geminiErr) {
-        console.warn('Gemini smart-triage call failed, trying OpenAI:', geminiErr);
-      }
+    const response = await withTimeout(aiPromise, 8000, null);
+    if (response?.output) {
+      triageCache.set(cacheKey, response.output);
+      return NextResponse.json({ success: true, triage: response.output, modelUsed: TRIAGE_AI_MODEL });
     }
+  } catch (aiErr) {
+    console.warn('Triage AI smart-triage call failed, falling back to rule-based triage:', aiErr);
+  }
 
-    const openai = getOpenAI();
-    if (openai) {
-      try {
-        const aiPromise = openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are the Lead Hardware Triage Specialist at D&CP Spokane Lab. Output ONLY valid JSON matching the requested structure.',
-            },
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.2,
-        });
-
-        const response = await withTimeout(aiPromise, 6000, null);
-        const replyText = (response as any)?.choices?.[0]?.message?.content;
-
-        if (replyText) {
-          const parsed = JSON.parse(replyText);
-          triageCache.set(cacheKey, parsed);
-          return NextResponse.json({ success: true, triage: parsed, modelUsed: 'gpt-4o-mini' });
-        }
-      } catch (aiErr) {
-        console.warn('OpenAI smart-triage call failed, falling back to rule-based triage:', aiErr);
-      }
-    }
-
-    // Fallback rule-based smart triage if OPENAI_API_KEY is not set or API failed
+  try {
+    // Fallback rule-based smart triage if the model call is unavailable or failed
     const descLower = (symptomDescription || '').toLowerCase();
     let suspectedFault = 'Power Rail & Charge IC Interruption';
     let recommendedTier = 'TIER_1_POWER_PORT_REFRESH';
