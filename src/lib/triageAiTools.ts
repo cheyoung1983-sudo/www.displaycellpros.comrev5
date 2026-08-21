@@ -14,14 +14,21 @@ const TOOL_SECRET_HEADER = 'x-triage-tool-secret';
  * Verifies the shared-secret header ElevenLabs sends on these tool calls.
  * Returns a ready-to-return 401 response if verification fails, or null
  * if the caller may proceed. When TRIAGE_TOOL_WEBHOOK_SECRET is unset,
- * logs a warning and allows the request through (dev/sandbox mode) -
- * matches the permissive-when-unconfigured pattern used by the GitHub
- * and Stripe webhook handlers.
+ * behavior depends on environment: production fails closed (these tools
+ * can send real SMS, post to Slack, and expose customer PII, so an
+ * unconfigured secret in production is a misconfiguration, not a green
+ * light) - non-production logs a warning and allows the request through
+ * (dev/sandbox mode), matching the permissive-when-unconfigured pattern
+ * used by the GitHub and Stripe webhook handlers.
  */
 export function verifyTriageToolSecret(req: NextRequest): NextResponse | null {
   const expected = process.env.TRIAGE_TOOL_WEBHOOK_SECRET;
   if (!expected) {
-    console.warn('[Triage AI Tools] TRIAGE_TOOL_WEBHOOK_SECRET not configured - accepting request unverified.');
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[Triage AI Tools] TRIAGE_TOOL_WEBHOOK_SECRET is not configured in production - rejecting tool call.');
+      return NextResponse.json({ error: 'Tool endpoint misconfigured' }, { status: 503 });
+    }
+    console.warn('[Triage AI Tools] TRIAGE_TOOL_WEBHOOK_SECRET not configured - accepting request unverified (non-production).');
     return null;
   }
   const provided = req.headers.get(TOOL_SECRET_HEADER);
