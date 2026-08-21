@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { deviceModel, symptomDescription } = parseResult.data;
+  const { deviceModel, symptomDescription, retrievedContext } = parseResult.data;
   const cacheKey = `triage_${deviceModel}_${symptomDescription.trim().toLowerCase()}`;
   const cachedTriage = triageCache.get(cacheKey);
   if (cachedTriage) {
@@ -54,6 +54,10 @@ export async function POST(req: NextRequest) {
   try {
     const { generateText, Output } = await import('ai');
 
+    const retrievedContextSection = retrievedContext && retrievedContext.length > 0
+      ? `\n\nRETRIEVED KNOWLEDGE BASE CONTEXT (from the on-file device/repair database, ranked by relevance to this query):\n${retrievedContext.map((c, i) => `${i + 1}. ${c}`).join('\n')}\nGround your diagnosis in this context when it matches the reported symptoms; do not invent device-specific facts that contradict it.`
+      : '';
+
     const prompt = `Analyze the user's reported device symptoms and model to suggest a likely issue category, service tier, confidence score, and initial DIY troubleshooting steps.
 
 Device Model: "${deviceModel || 'Unspecified Mobile/Computer Unit'}"
@@ -61,7 +65,7 @@ Symptom Description: "${symptomDescription}"`;
 
     const aiPromise = generateText({
       model: TRIAGE_AI_MODEL,
-      instructions: `You are the Lead Hardware Triage Specialist at D&CP Spokane Lab. Ground your suspected fault and confidence in the knowledge base below — do not invent a component or failure mechanism that isn't supported by it.\n\n${HARDWARE_FAILURE_KNOWLEDGE}`,
+      instructions: `You are the Lead Hardware Triage Specialist at D&CP Spokane Lab. Ground your suspected fault and confidence in the knowledge base below — do not invent a component or failure mechanism that isn't supported by it.\n\n${HARDWARE_FAILURE_KNOWLEDGE}${retrievedContextSection}`,
       prompt,
       temperature: 0.2,
       output: Output.object({ schema: SmartTriageResultSchema }),

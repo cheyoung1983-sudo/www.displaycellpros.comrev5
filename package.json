@@ -18,7 +18,7 @@
     "preflight": "node scripts/preflight.mjs"
   },
   "dependencies": {
-    "@auth0/auth0-react": "^2.24.0",
+    "@auth0/nextjs-auth0": "^4.27.0",
     "@aws-sdk/rds-signer": "^3.1115.0",
     "@elevenlabs/elevenlabs-js": "^2.64.0",
     "@google/genai": "^2.4.0",

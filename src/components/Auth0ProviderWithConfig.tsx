@@ -1,21 +1,30 @@
 "use client";
 
-import React, { ReactNode, createContext, useContext, useMemo } from 'react';
-import { Auth0Provider, useAuth0, User } from '@auth0/auth0-react';
+import { ReactNode } from 'react';
+import { useUser, getAccessToken } from '@auth0/nextjs-auth0/client';
+import type { User } from '@auth0/nextjs-auth0/types';
 
-interface Auth0ContextType {
+const PROFILE_ROUTE = '/auth0/profile';
+const ACCESS_TOKEN_ROUTE = '/auth0/access-token';
+
+interface SafeAuth0Value {
   isConfigured: boolean;
   isAuthenticated: boolean;
   isLoading: boolean;
   user?: User;
-  loginWithRedirect: (options?: any) => Promise<void>;
-  loginWithPopup: (options?: any) => Promise<void>;
-  logout: (options?: any) => Promise<void>;
-  getAccessTokenSilently: (options?: any) => Promise<string>;
+  loginWithRedirect: (options?: { returnTo?: string }) => Promise<void>;
+  loginWithPopup: (options?: { returnTo?: string }) => Promise<void>;
+  logout: (options?: { logoutParams?: { returnTo?: string } }) => Promise<void>;
+  getAccessTokenSilently: (options?: { audience?: string; scope?: string }) => Promise<string>;
 }
 
-const SafeAuth0Context = createContext<Auth0ContextType | null>(null);
-
+/**
+ * Best-effort "has anyone set up Auth0 for this deployment" signal. The v4
+ * SDK is server-side and doesn't need public env vars to function, but the
+ * UI still uses this to decide whether to show a real login button or a
+ * "not configured yet" state - it assumes ops sets the public and server
+ * Auth0 env vars together.
+ */
 export function isAuth0Configured(): boolean {
   return Boolean(
     process.env.NEXT_PUBLIC_AUTH0_DOMAIN &&
@@ -23,97 +32,48 @@ export function isAuth0Configured(): boolean {
   );
 }
 
-function ConfiguredAuth0Consumer({ children }: { children: ReactNode }) {
-  const auth0 = useAuth0();
-
-  const value = useMemo<Auth0ContextType>(() => ({
-    isConfigured: true,
-    isAuthenticated: auth0.isAuthenticated,
-    isLoading: auth0.isLoading,
-    user: auth0.user,
-    loginWithRedirect: auth0.loginWithRedirect,
-    loginWithPopup: auth0.loginWithPopup,
-    logout: auth0.logout,
-    getAccessTokenSilently: auth0.getAccessTokenSilently,
-  }), [auth0]);
-
-  return (
-    <SafeAuth0Context.Provider value={value}>
-      {children}
-    </SafeAuth0Context.Provider>
-  );
+function buildUrl(base: string, returnTo?: string): string {
+  if (!returnTo) return base;
+  return `${base}?returnTo=${encodeURIComponent(returnTo)}`;
 }
 
-function FallbackAuth0Provider({ children }: { children: ReactNode }) {
-  const value = useMemo<Auth0ContextType>(() => ({
-    isConfigured: false,
-    isAuthenticated: false,
-    isLoading: false,
-    user: undefined,
-    loginWithRedirect: async () => {
-      alert('Auth0 is not configured yet. Please add VITE_AUTH0_DOMAIN and VITE_AUTH0_CLIENT_ID in your environment.');
+export function Auth0ProviderWithConfig({ children }: { children: ReactNode }) {
+  // The v4 SDK reads its session from an httpOnly cookie via /auth0/profile,
+  // so unlike the old @auth0/auth0-react setup, no client-side context
+  // provider is required here - useSafeAuth0() below talks to the SDK
+  // directly through its client helpers.
+  return <>{children}</>;
+}
+
+export function useSafeAuth0(): SafeAuth0Value {
+  const { user, isLoading } = useUser({ route: PROFILE_ROUTE });
+  const configured = isAuth0Configured();
+
+  return {
+    isConfigured: configured,
+    isAuthenticated: Boolean(user),
+    isLoading,
+    user: user ?? undefined,
+    loginWithRedirect: async (options) => {
+      if (!configured) return;
+      window.location.href = buildUrl('/auth0/login', options?.returnTo);
     },
-    loginWithPopup: async () => {
-      alert('Auth0 is not configured yet. Please add VITE_AUTH0_DOMAIN and VITE_AUTH0_CLIENT_ID in your environment.');
+    // v4 has no popup login mode; fall back to a full-page redirect.
+    loginWithPopup: async (options) => {
+      if (!configured) return;
+      window.location.href = buildUrl('/auth0/login', options?.returnTo);
     },
-    logout: async () => {},
-    getAccessTokenSilently: async () => '',
-  }), []);
-
-  return (
-    <SafeAuth0Context.Provider value={value}>
-      {children}
-    </SafeAuth0Context.Provider>
-  );
-}
-
-interface Auth0ProviderWithConfigProps {
-  children: ReactNode;
-}
-
-export function Auth0ProviderWithConfig({ children }: Auth0ProviderWithConfigProps) {
-  const domain = process.env.NEXT_PUBLIC_AUTH0_DOMAIN;
-  const clientId = process.env.NEXT_PUBLIC_AUTH0_CLIENT_ID;
-  const audience = process.env.NEXT_PUBLIC_AUTH0_AUDIENCE || 'https://api.displaycellpros.com';
-
-  if (!domain || !clientId) {
-    return <FallbackAuth0Provider>{children}</FallbackAuth0Provider>;
-  }
-
-  const redirectUri = typeof window !== 'undefined' ? window.location.origin : undefined;
-
-  return (
-    <Auth0Provider
-      domain={domain}
-      clientId={clientId}
-      authorizationParams={{
-        redirect_uri: redirectUri,
-        scope: 'openid profile email offline_access read:repairs write:repairs',
-        ...(audience ? { audience } : {})
-      }}
-      useRefreshTokens={true}
-      cacheLocation="localstorage"
-    >
-      <ConfiguredAuth0Consumer>
-        {children}
-      </ConfiguredAuth0Consumer>
-    </Auth0Provider>
-  );
-}
-
-export function useSafeAuth0(): Auth0ContextType {
-  const context = useContext(SafeAuth0Context);
-  if (!context) {
-    return {
-      isConfigured: false,
-      isAuthenticated: false,
-      isLoading: false,
-      user: undefined,
-      loginWithRedirect: async () => {},
-      loginWithPopup: async () => {},
-      logout: async () => {},
-      getAccessTokenSilently: async () => '',
-    };
-  }
-  return context;
+    logout: async (options) => {
+      if (!configured) return;
+      window.location.href = buildUrl('/auth0/logout', options?.logoutParams?.returnTo);
+    },
+    getAccessTokenSilently: async (options) => {
+      if (!configured) return '';
+      return getAccessToken({
+        route: ACCESS_TOKEN_ROUTE,
+        audience: options?.audience,
+        scope: options?.scope,
+      });
+    },
+  };
 }
