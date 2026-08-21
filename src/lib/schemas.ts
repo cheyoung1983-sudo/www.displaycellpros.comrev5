@@ -16,6 +16,7 @@ export const DiagnoseSchema = z.object({
 export const SmartTriageSchema = z.object({
   deviceModel: z.string().max(120).optional().default('Unspecified Model'),
   symptomDescription: z.string().min(1, 'Symptom description is required').max(2500),
+  retrievedContext: z.array(z.string().max(600)).max(5).optional().default([]),
 });
 
 export const DiagnosticPathSchema = z.object({

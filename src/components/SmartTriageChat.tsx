@@ -16,6 +16,8 @@ import {
   Wrench
 } from 'lucide-react';
 import { useToast } from './Toast.tsx';
+import { retrieveTriageContext, synthesizeOfflineTriage } from '../lib/triageKnowledgeBase.ts';
+import { useTriageOfflineCache } from '../lib/triageOfflineStore.ts';
 
 export interface SmartTriageResult {
   suspectedFault: string;
@@ -34,10 +36,25 @@ interface SmartTriageChatProps {
 
 export default function SmartTriageChat({ deviceModel = '', onApplyRecommendations }: SmartTriageChatProps) {
   const { showToast } = useToast();
+  const { isOnline, getCached, saveCached } = useTriageOfflineCache();
   const [symptomInput, setSymptomInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [triageResult, setTriageResult] = useState<SmartTriageResult | null>(null);
+  const [resultSource, setResultSource] = useState<'ai' | 'offline-local' | null>(null);
   const [history, setHistory] = useState<Array<{ role: 'user' | 'ai'; text: string; triage?: SmartTriageResult }>>([]);
+
+  const applyResult = (result: SmartTriageResult, source: 'ai' | 'offline-local') => {
+    setTriageResult(result);
+    setResultSource(source);
+    setHistory((prev) => [
+      ...prev,
+      {
+        role: 'ai',
+        text: `Analysis complete: ${result.suspectedFault} (${result.confidenceScore}% confidence). Recommended: ${result.recommendedTierLabel}`,
+        triage: result,
+      },
+    ]);
+  };
 
   const handleAnalyze = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -51,6 +68,21 @@ export default function SmartTriageChat({ deviceModel = '', onApplyRecommendatio
     setHistory((prev) => [...prev, { role: 'user', text: currentQuery }]);
     setSymptomInput('');
 
+    // Local retrieval always runs first - it's bundled data, so it's instant and works offline.
+    const retrievedContext = retrieveTriageContext(deviceModel, currentQuery);
+
+    if (!isOnline) {
+      const cached = getCached(deviceModel, currentQuery);
+      const offlineResult = cached?.result || synthesizeOfflineTriage(deviceModel, currentQuery);
+      if (!cached) {
+        saveCached({ deviceModel, symptomDescription: currentQuery, result: offlineResult, source: 'offline-local' });
+      }
+      applyResult(offlineResult, cached?.source || 'offline-local');
+      showToast('Offline - showing a local estimate from the device knowledge base.', 'success');
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/ai/smart-triage', {
         method: 'POST',
@@ -58,6 +90,7 @@ export default function SmartTriageChat({ deviceModel = '', onApplyRecommendatio
         body: JSON.stringify({
           deviceModel,
           symptomDescription: currentQuery,
+          retrievedContext,
         }),
       });
 
@@ -68,22 +101,18 @@ export default function SmartTriageChat({ deviceModel = '', onApplyRecommendatio
 
       const data = await res.json();
       if (res.ok && data.success && data.triage) {
-        setTriageResult(data.triage);
-        setHistory((prev) => [
-          ...prev,
-          {
-            role: 'ai',
-            text: `Analysis complete: ${data.triage.suspectedFault} (${data.triage.confidenceScore}% confidence). Recommended: ${data.triage.recommendedTierLabel}`,
-            triage: data.triage,
-          },
-        ]);
+        saveCached({ deviceModel, symptomDescription: currentQuery, result: data.triage, source: 'ai' });
+        applyResult(data.triage, 'ai');
         showToast('Smart Triage complete!', 'success');
       } else {
         showToast(data.error || 'Failed to analyze symptoms. Please try again.', 'error');
       }
     } catch (err) {
-      console.error('Smart Triage Error:', err);
-      showToast('Connection error. Please try again.', 'error');
+      console.error('Smart Triage Error, falling back to local knowledge base:', err);
+      const offlineResult = synthesizeOfflineTriage(deviceModel, currentQuery);
+      saveCached({ deviceModel, symptomDescription: currentQuery, result: offlineResult, source: 'offline-local' });
+      applyResult(offlineResult, 'offline-local');
+      showToast('Connection error - showing a local estimate instead.', 'error');
     } finally {
       setLoading(false);
     }
@@ -181,6 +210,11 @@ export default function SmartTriageChat({ deviceModel = '', onApplyRecommendatio
               <h5 className="text-lg font-bold text-white mt-0.5">{triageResult.suspectedFault}</h5>
             </div>
             <div className="flex items-center gap-2">
+              {resultSource === 'offline-local' && (
+                <span className="px-3 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full text-xs font-bold">
+                  Offline Local Estimate
+                </span>
+              )}
               <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full text-xs font-black">
                 {triageResult.confidenceScore}% Match
               </span>

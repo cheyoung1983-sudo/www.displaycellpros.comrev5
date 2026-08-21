@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { deviceModel, symptomDescription } = parseResult.data;
+  const { deviceModel, symptomDescription, retrievedContext } = parseResult.data;
   const cacheKey = `triage_${deviceModel}_${symptomDescription.trim().toLowerCase()}`;
   const cachedTriage = triageCache.get(cacheKey);
   if (cachedTriage) {
@@ -39,13 +39,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const knowledgeBaseSection = retrievedContext && retrievedContext.length > 0
+      ? `\nRETRIEVED KNOWLEDGE BASE CONTEXT (from the on-file device/repair database, ranked by relevance to this query):\n${retrievedContext.map((c, i) => `${i + 1}. ${c}`).join('\n')}\nGround your diagnosis in this context when it matches the reported symptoms; do not invent device-specific facts that contradict it.\n`
+      : '';
+
     const prompt = `
 You are the Lead Hardware Triage Specialist at D&CP Spokane Lab.
 Analyze the user's reported device symptoms and model to suggest likely issue categories, service tier, confidence score, and initial DIY troubleshooting steps.
 
 Device Model: "${deviceModel || 'Unspecified Mobile/Computer Unit'}"
 Symptom Description: "${symptomDescription}"
-
+${knowledgeBaseSection}
 Return ONLY a valid JSON object matching this schema (no markdown code fences):
 {
   "suspectedFault": "Brief title of primary suspected fault",
