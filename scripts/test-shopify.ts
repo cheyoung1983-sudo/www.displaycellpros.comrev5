@@ -3,13 +3,21 @@ dotenv.config({ path: ".env.local" });
 
 const DOMAIN =
   process.env.SHOPIFY_STORE_DOMAIN ||
-  process.env.DCP_SANDBOX_SHOPIFY_STORE_DOMAIN ||
-  "vercel-store-34d604b7-q6ui4f53.myshopify.com";
+  process.env.DCP_SANDBOX_SHOPIFY_STORE_DOMAIN;
 
 const TOKEN =
   process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN ||
-  process.env.DCP_SANDBOX_SHOPIFY_STOREFRONT_ACCESS_TOKEN ||
-  "cda195dfcf9e55984c840562aaeafa85";
+  process.env.DCP_SANDBOX_SHOPIFY_STOREFRONT_ACCESS_TOKEN;
+
+if (!DOMAIN || !TOKEN) {
+  console.error(
+    "Missing Shopify credentials. Set SHOPIFY_STORE_DOMAIN and " +
+      "SHOPIFY_STOREFRONT_ACCESS_TOKEN in .env.local (see .env.example).\n" +
+      "This script previously fell back to a hardcoded store, so it could " +
+      "report success against a store you had not configured."
+  );
+  process.exit(1);
+}
 
 const ENDPOINT = `https://${DOMAIN.replace(/^https?:\/\//, "")}/api/2025-01/graphql.json`;
 

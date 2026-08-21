@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
     "dev": "node scripts/dev-wrapper.js",
@@ -10,7 +13,8 @@
     "start": "next start",
     "clean": "rm -rf .next",
     "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "preflight": "node scripts/preflight.mjs"
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.24.0",
