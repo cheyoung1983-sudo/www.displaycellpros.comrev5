@@ -25,8 +25,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { customer_name, customer_phone, device_model, failure_symptoms, intake_notes } = parseResult.data;
+  const { customer_name, customer_phone, customer_email, device_model, failure_symptoms, intake_notes } = parseResult.data;
   const ticketId = `dcp_tier3_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const dbTicketNumber = `DCP-${Math.floor(1000 + Math.random() * 9000)}`;
 
   const notifyResult = await notifyTier3Escalation({
     id: ticketId,
@@ -51,6 +52,27 @@ export async function POST(req: NextRequest) {
     notified: notifyResult.notified,
     notifyChannel: notifyResult.channel,
   });
+
+  try {
+    const { query } = await import('../../../../src/lib/serverDb.ts');
+    await query(
+      `INSERT INTO repair_tickets (ticket_number, customer_name, customer_email, customer_phone, device_model, service_tier, issue_description, technician_notes, status)
+       VALUES ($1, $2, $3, $4, $5, 'TIER_3_MICRO_SOLDERING', $6, $7, 'escalated')`,
+      [
+        dbTicketNumber,
+        customer_name,
+        customer_email || null,
+        customer_phone,
+        device_model,
+        failure_symptoms,
+        intake_notes,
+      ]
+    );
+  } catch (dbError) {
+    // The Aurora record is a durability improvement over tier3EscalationLog,
+    // not a requirement for the Slack alert itself to have gone out.
+    console.error('Failed to persist repair_tickets row for Tier 3 escalation:', dbError);
+  }
 
   return NextResponse.json({
     success: true,

@@ -14,6 +14,7 @@ import { formRateLimiterNext } from '../../../../src/lib/serverSecurity.ts';
 import { RepairQuoteSchema } from '../../../../src/lib/schemas.ts';
 import { calculateQuote, TAX_RATES } from '../../../../src/lib/pricing.ts';
 import { ServiceTier } from '../../../../src/types.ts';
+import { verifyTriageToolSecret } from '../../../../src/lib/triageAiTools.ts';
 
 const REPAIR_TYPE_TIER: Record<string, ServiceTier> = {
   battery: ServiceTier.TIER_1_POWER,
@@ -44,6 +45,9 @@ const OEM_PARTS_MULTIPLIER = 1.7;
 const B2B_LABOR_DISCOUNT = 0.15;
 
 export async function POST(req: NextRequest) {
+  const unauthorized = verifyTriageToolSecret(req);
+  if (unauthorized) return unauthorized;
+
   const limited = formRateLimiterNext.check(req);
   if (limited) return limited;
 

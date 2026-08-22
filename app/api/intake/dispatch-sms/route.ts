@@ -25,10 +25,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { customer_name, customer_phone, device_summary, quoted_price, service_tier } = parseResult.data;
+  const { customer_name, customer_phone, customer_email, device_summary, quoted_price, service_tier } = parseResult.data;
 
   const ticketId = `dcp_booking_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const bookingUrl = `https://www.displaycellpros.com/book?ticket=${ticketId}`;
+  const dbTicketNumber = `DCP-${Math.floor(1000 + Math.random() * 9000)}`;
 
   const smsResult = await sendBookingSms({
     toPhone: customer_phone,
@@ -48,6 +49,27 @@ export async function POST(req: NextRequest) {
     smsSent: smsResult.sent,
     smsProvider: smsResult.provider,
   });
+
+  try {
+    const { query } = await import('../../../../src/lib/serverDb.ts');
+    await query(
+      `INSERT INTO repair_tickets (ticket_number, customer_name, customer_email, customer_phone, service_tier, issue_description, status, costs)
+       VALUES ($1, $2, $3, $4, $5, $6, 'quote_sent', $7)`,
+      [
+        dbTicketNumber,
+        customer_name,
+        customer_email || null,
+        customer_phone,
+        service_tier || '',
+        device_summary,
+        JSON.stringify({ totalCost: quoted_price }),
+      ]
+    );
+  } catch (dbError) {
+    // The Aurora record is a durability improvement over bookingDispatchLog,
+    // not a requirement for the SMS itself to have gone out — log and continue.
+    console.error('Failed to persist repair_tickets row for voice booking dispatch:', dbError);
+  }
 
   return NextResponse.json({
     success: true,

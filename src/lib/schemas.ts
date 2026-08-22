@@ -13,6 +13,7 @@ export const RepairQuoteSchema = z.object({
 export const DispatchBookingLinkSchema = z.object({
   customer_name: z.string().min(1).max(200),
   customer_phone: z.string().regex(/^\+1\d{10}$/, 'customer_phone must be E.164 US format, e.g. +15095550199'),
+  customer_email: z.string().email().optional(),
   device_summary: z.string().min(1).max(500),
   quoted_price: z.number().min(0),
   service_tier: z.string().max(100).optional().default(''),
@@ -22,6 +23,7 @@ export const DispatchBookingLinkSchema = z.object({
 export const EscalateTier3TicketSchema = z.object({
   customer_name: z.string().min(1).max(200),
   customer_phone: z.string().regex(/^\+1\d{10}$/, 'customer_phone must be E.164 US format, e.g. +15095550199'),
+  customer_email: z.string().email().optional(),
   device_model: z.string().min(1).max(120),
   failure_symptoms: z.string().min(1).max(2000),
   intake_notes: z.string().max(2000).optional().default(''),

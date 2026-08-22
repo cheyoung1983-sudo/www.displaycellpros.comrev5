@@ -6,6 +6,30 @@ export async function POST(req: NextRequest) {
   const limited = aiRateLimiterNext.check(req);
   if (limited) return limited;
 
+  const { auth0, isAuth0ServerConfigured } = await import('../../../../src/lib/auth0Server.ts');
+  if (!isAuth0ServerConfigured()) {
+    // auth0.getSession() throws a DomainResolutionError on every call when
+    // AUTH0_DOMAIN/AUTH0_CLIENT_ID/AUTH0_SECRET aren't set - reject gracefully
+    // instead of 500ing, matching the pattern middleware.ts uses.
+    return NextResponse.json(
+      { success: false, error: 'The Data Expert is not available in this environment (Auth0 not configured).' },
+      { status: 503 }
+    );
+  }
+
+  const session = await auth0.getSession(req);
+  if (!session?.user?.email) {
+    return NextResponse.json(
+      { success: false, error: 'Sign in required to use the Data Expert.' },
+      { status: 401 }
+    );
+  }
+
+  const { evaluateUserRbac } = await import('../../../../src/lib/auth0Rbac.ts');
+  const rbac = evaluateUserRbac(session.user);
+  const isTechnician = rbac.isSuperAdmin || rbac.hasDcpPermission;
+  const callerEmail = session.user.email;
+
   const body = await req.json().catch(() => ({}));
   const parsed = DataExpertQuerySchema.safeParse(body);
   if (!parsed.success) {
@@ -16,7 +40,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { dataExpertAgent } = await import('../../../../src/lib/agents/dataExpertAgent.ts');
+    const { createDataExpertAgent } = await import('../../../../src/lib/agents/dataExpertAgent.ts');
+    const dataExpertAgent = createDataExpertAgent({ callerEmail, isTechnician });
+
     const result = await withTimeout(
       dataExpertAgent.generate({ prompt: parsed.data.question }),
       20000,
