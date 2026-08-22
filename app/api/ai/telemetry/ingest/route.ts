@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { aiRateLimiterNext } from '../../../../../src/lib/serverSecurity.ts';
 import { TelemetryIngestSchema } from '../../../../../src/lib/schemas.ts';
 import { isThermalLockoutTriggered, triangulateFaults } from '../../../../../src/lib/faultTriangulation.ts';
+import { sendThermalLockoutAlert } from '../../../../../src/lib/thermalLockoutAlert.ts';
 
 /**
  * POST /api/ai/telemetry/ingest
@@ -47,11 +48,20 @@ export async function POST(req: NextRequest) {
          VALUES ($1, $2, $3, $4, 'thermal_lockout')`,
         [deviceId, vTerm, currentDraw, thermalReading]
       );
+
+      // Best-effort - the client must abort/cut VBUS regardless of whether
+      // this alert send succeeds, so failures here never block the response.
+      const alert = await sendThermalLockoutAlert({ deviceId, thermalReading }).catch((err) => {
+        console.error('Thermal lockout alert failed:', err);
+        return { sent: false as const, provider: 'twilio' as const, error: err?.message };
+      });
+
       return NextResponse.json({
         success: true,
         lockout: true,
         reason: 'thermal_lockout',
         message: `Thermal reading ${thermalReading}C exceeds the 45C safety threshold. Abort the diagnostic loop and cut VBUS immediately.`,
+        alertSent: alert.sent,
       });
     }
 
