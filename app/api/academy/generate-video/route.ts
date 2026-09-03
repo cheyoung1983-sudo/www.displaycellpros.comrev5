@@ -1,32 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { aiRateLimiterNext, videoGuideCache, withTimeout } from '../../../../src/lib/serverSecurity.ts';
 import { AcademyVideoSchema } from '../../../../src/lib/schemas.ts';
-
-const ACADEMY_VIDEO_MODEL = 'anthropic/claude-sonnet-5';
-
-const VideoSceneSchema = z.object({
-  stepNumber: z.number(),
-  title: z.string(),
-  narration: z.string(),
-  durationSeconds: z.number(),
-  visualPrompt: z.string(),
-  graphicType: z.string(),
-  highlightRegion: z.object({ x: z.number(), y: z.number(), label: z.string() }),
-  actionTip: z.string(),
-});
-
-const VideoTutorialSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  category: z.string(),
-  difficulty: z.string(),
-  estimatedTime: z.string(),
-  description: z.string(),
-  requiredTools: z.array(z.string()),
-  safetyWarnings: z.array(z.string()),
-  scenes: z.array(VideoSceneSchema).min(4).max(5),
-});
+import { getOpenAI } from '../../../../src/lib/aiClients.ts';
 
 export async function POST(req: NextRequest) {
   const limited = aiRateLimiterNext.check(req);
@@ -43,9 +18,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    {
+    const openai = getOpenAI();
+    if (openai) {
       try {
-        const { generateText, Output } = await import('ai');
         const prompt = `
 You are the Master Educational Director at D&CP Spokane Repair Academy.
 Generate a structured, step-by-step video tutorial script and scene specification for a short DIY electronics repair tutorial on: "${topic}".
@@ -76,22 +51,32 @@ Return ONLY a valid JSON object strictly matching this format without markdown c
 Generate exactly 4-5 well-thought-out scenes.
           `;
 
-        const aiPromise = generateText({
-          model: ACADEMY_VIDEO_MODEL,
-          instructions: 'You are the Master Educational Director at D&CP Spokane Repair Academy.',
-          prompt,
+        const aiPromise = openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are the Master Educational Director at D&CP Spokane Repair Academy. Return ONLY a valid JSON object strictly matching the tutorial schema.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          response_format: { type: 'json_object' },
           temperature: 0.3,
-          output: Output.object({ schema: VideoTutorialSchema }),
         });
 
         const response = await withTimeout(aiPromise, 6000, null);
+        const replyText = (response as any)?.choices?.[0]?.message?.content;
 
-        if (response?.output) {
-          videoGuideCache.set(cacheKey, response.output);
-          return NextResponse.json({ success: true, video: response.output });
+        if (replyText) {
+          const parsed = JSON.parse(replyText);
+          videoGuideCache.set(cacheKey, parsed);
+          return NextResponse.json({ success: true, video: parsed });
         }
       } catch (aiErr) {
-        console.warn('Academy video generation failed, falling back to rule-based video generator:', aiErr);
+        console.warn('OpenAI video generation failed, falling back to rule-based video generator:', aiErr);
       }
     }
 
