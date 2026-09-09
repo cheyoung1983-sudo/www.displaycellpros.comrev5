@@ -22,6 +22,9 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    reactProductionProfiling: true,
+  },
   async headers() {
     return [
       {

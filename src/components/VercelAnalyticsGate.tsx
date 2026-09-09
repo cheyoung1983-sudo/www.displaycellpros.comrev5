@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { Analytics } from '@vercel/analytics/react';
-import { SpeedInsights } from '@vercel/speed-insights/react';
+import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 export function VercelAnalyticsGate() {
   const [shouldMount, setShouldMount] = useState(false);
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'production' && window.location.hostname.includes('vercel')) {
+    if (process.env.NODE_ENV === 'production') {
       setShouldMount(true);
     }
   }, []);
