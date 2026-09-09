@@ -157,13 +157,11 @@ export const LabBenchParticles: React.FC<LabBenchParticlesProps> = ({
     };
   }, [density, paused]);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden="true"
-      className={`pointer-events-none absolute inset-0 w-full h-full z-0 opacity-85 will-change-transform ${className}`}
-    />
-  );
+  return React.createElement('canvas', {
+    ref: canvasRef,
+    'aria-hidden': 'true',
+    className: `pointer-events-none absolute inset-0 w-full h-full z-0 opacity-85 will-change-transform ${className}`,
+  });
 };
 
 export default LabBenchParticles;

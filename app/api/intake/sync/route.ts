@@ -117,6 +117,31 @@ export async function POST(req: NextRequest) {
     photoCategories: photoMetadata.categories,
   });
 
+  const ticketNumber = `DCP-${Math.floor(1000 + Math.random() * 9000)}`;
+  try {
+    const { query } = await import('../../../../src/lib/serverDb.ts');
+    await query(
+      `INSERT INTO repair_tickets (ticket_number, customer_name, customer_email, customer_phone, device_manufacturer, device_model, imei, service_tier, issue_description, telemetry)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        ticketNumber,
+        data.customerName,
+        data.customerEmail,
+        data.customerPhone,
+        data.deviceManufacturer,
+        data.deviceModel,
+        data.imei,
+        data.serviceTier,
+        data.customerReportedIssue,
+        JSON.stringify(data.telemetry || {}),
+      ]
+    );
+  } catch (dbError) {
+    // The repair ticket record is secondary to getting the customer checked out —
+    // log and continue rather than blocking intake on a DB hiccup.
+    console.error('Failed to persist repair_tickets row for intake:', dbError);
+  }
+
   // Ask the Shopify client itself whether it can make a call, rather than
   // re-deriving it from environment variables here. When this check and the
   // client's own credential resolution drift apart, they disagree about which
@@ -150,6 +175,7 @@ export async function POST(req: NextRequest) {
       attachedPhotoCount: devicePhotos.length,
       attachedCategories: photoMetadata.categories || [],
       labTicketCreated: true,
+      ticketNumber,
     });
   }
 
@@ -170,6 +196,7 @@ export async function POST(req: NextRequest) {
         attachedPhotoCount: devicePhotos.length,
         attachedCategories: photoMetadata.categories || [],
         labTicketCreated: true,
+        ticketNumber,
         message: 'This repair type isn’t available for instant online checkout yet. A Spokane Lab technician will contact you directly to arrange payment.',
       });
     }
@@ -184,6 +211,7 @@ export async function POST(req: NextRequest) {
       attachedPhotoCount: devicePhotos.length,
       attachedCategories: photoMetadata.categories || [],
       labTicketCreated: true,
+      ticketNumber,
     });
   } catch (error: any) {
     console.error('Shopify cart creation failed:', error);

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { aiRateLimiterNext, withTimeout } from '../../../../src/lib/serverSecurity.ts';
 import { SupportChatSchema } from '../../../../src/lib/schemas.ts';
-import { getOpenAI } from '../../../../src/lib/aiClients.ts';
+
+const SUPPORT_CHAT_MODEL = 'anthropic/claude-sonnet-5';
 
 export async function POST(req: NextRequest) {
   const limited = aiRateLimiterNext.check(req);
@@ -19,9 +20,10 @@ export async function POST(req: NextRequest) {
 
     const { message, conversationHistory, ticketId } = parseResult.data;
 
-    const openai = getOpenAI();
-    if (openai) {
+    {
       try {
+        const { generateText } = await import('ai');
+
         const historyMessages: any[] = [];
         if (Array.isArray(conversationHistory)) {
           for (const m of conversationHistory) {
@@ -47,15 +49,16 @@ Respond concisely (2-4 sentences max), professionally, and directly in character
 Provide clear technical guidance, reassure data privacy, and suggest next steps (e.g. submitting an Intake form or using the Repair Status tracker).
           `;
 
-        const aiPromise = openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'system', content: systemPrompt }, ...historyMessages, { role: 'user', content: message }],
+        const aiPromise = generateText({
+          model: SUPPORT_CHAT_MODEL,
+          instructions: systemPrompt,
+          messages: [...historyMessages, { role: 'user', content: message }],
           temperature: 0.4,
-          max_tokens: 300,
+          maxOutputTokens: 300,
         });
 
         const response = await withTimeout(aiPromise, 6000, null);
-        const replyText = (response as any)?.choices?.[0]?.message?.content;
+        const replyText = response?.text;
 
         if (replyText) {
           return NextResponse.json({
@@ -69,7 +72,7 @@ Provide clear technical guidance, reassure data privacy, and suggest next steps 
           });
         }
       } catch (aiErr) {
-        console.warn('OpenAI support chat call failed, falling back to rule-based technician response:', aiErr);
+        console.warn('Support chat AI call failed, falling back to rule-based technician response:', aiErr);
       }
     }
 

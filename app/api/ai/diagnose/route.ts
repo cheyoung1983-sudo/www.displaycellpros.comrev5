@@ -9,11 +9,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { aiRateLimiterNext, diagnosticCache, withTimeout } from '../../../../src/lib/serverSecurity.ts';
 import { DiagnoseSchema } from '../../../../src/lib/schemas.ts';
-import { getOpenAI, getGemini } from '../../../../src/lib/aiClients.ts';
+import { HARDWARE_FAILURE_KNOWLEDGE } from '../../../../src/lib/knowledge/hardwareFailureKnowledge.ts';
+
+const TRIAGE_AI_MODEL = 'anthropic/claude-sonnet-5';
 
 /**
  * POST /api/ai/diagnose
- * Analyzes device telemetry and customer reports using Gemini or OpenAI.
+ * Analyzes device telemetry and customer reports, grounded in the
+ * Triage AI hardware failure-mode knowledge base and verified by
+ * generateWithFidelityCheck before being returned to the technician.
  *
  * @param req - The Next.js request object containing diagnostic telemetry.
  * @returns A JSON response with the diagnostic analysis or a fallback report.
@@ -34,135 +38,49 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ analysis: cached, cached: true });
   }
 
+  const current = telemetry?.ammeterDrawAmps ?? 0;
+  const isShort = Boolean(telemetry?.isShortToGround);
+  const tier = isShort || current > 2.0 ? 'Tier 3 (Board Rework)' : current < 1.0 ? 'Tier 1 (Power/Port)' : 'Tier 2 (Display/Assembly)';
+
+  const fallbackReport = `### D&CP Engineering Diagnostic Report\n**Device Target:** ${deviceModel || 'Client Unit'}  \n**Service Classification:** ${tier}  \n**Primary Finding:** ${isShort ? 'Logical short detected on primary power rail (VDD_MAIN).' : 'Telemetry indicates standard power delivery and logic loop analysis.'}\n\n#### Technical Analysis\n- **Current Draw:** ${current}A (${current > 2.0 ? 'Abnormal elevated draw' : 'Nominal draw'})\n- **Battery Health:** ${telemetry?.batteryHealthPercentage ?? 92}% (Nominal)\n- **Bench Protocol:** ${isShort ? 'Perform thermal imaging and rosin vapor detection to isolate shorted capacitor/PMIC.' : 'Verify dock connector flex and test battery under nominal load.'}\n\n#### Compliance & Safety\n- **WA RCW 19.415 Disclosure:** All OEM repair rights preserved. Safe non-destructive diagnostic bench scan performed.\n\n*Final pricing and repair confirmation require physical verification of the motherboard via bench ammeter and diode-mode measurements.*`;
+
   try {
-    const gemini = getGemini();
-    if (gemini) {
-      try {
-        const prompt = `
-            You are the D&CP LLC Senior Technical Diagnostic Assistant (powered by Gemini 2.0 Flash).
-            Analyze the following telemetry data and technician notes for a ${deviceModel || 'Device'} according to D&CP Engineering Specification Rev 4.0.
+    const { generateWithFidelityCheck } = await import('../../../../src/lib/fidelityService.ts');
 
-            INPUT DATA:
-            - Technician/Customer Notes: "${customerReportedIssue || 'No specific notes'}"
-            - Battery Health: ${telemetry?.batteryHealthPercentage ?? 90}%
-            - Battery Temperature: ${telemetry?.batteryTempCelsius ?? 22}°C
-            - Ammeter DC Current Draw: ${telemetry?.ammeterDrawAmps ?? 0}A
-            - Logical Short to Ground (Primary Rails): ${telemetry?.isShortToGround ? 'POSITIVE' : 'NEGATIVE'}
+    const prompt = `Analyze the following telemetry data and technician notes for a ${deviceModel || 'Device'}.
 
-            DIAGNOSTIC MANDATES:
-            1. CLASSIFY SERVICE TIER:
-               - TIER 1 (Power/Port): < 1.0A draw, nominal rails.
-               - TIER 2 (Display): Visual fault reported, current nominal.
-               - TIER 3 (Board Rework): > 2.0A draw OR Short detected.
+INPUT DATA:
+- Technician/Customer Notes: "${customerReportedIssue || 'No specific notes'}"
+- Battery Health: ${telemetry?.batteryHealthPercentage ?? 90}%
+- Battery Temperature: ${telemetry?.batteryTempCelsius ?? 22}°C
+- Ammeter DC Current Draw: ${telemetry?.ammeterDrawAmps ?? 0}A
+- Logical Short to Ground (Primary Rails): ${telemetry?.isShortToGround ? 'POSITIVE' : 'NEGATIVE'}
 
-            2. TECHNICAL ANALYSIS:
-               - If short detected: Evaluate VDD_MAIN and VDD_BOOST rails. Suggest thermal camera inspection or rosin cloud method for heat bloom detection.
-               - If Current > 5.0A: Flag for immediate short-circuit rework (Level 2 VDD_MAIN short).
+Classify the service tier (Tier 1: Power/Port, <1.0A nominal; Tier 2: Display, visual fault with nominal current; Tier 3: Board Rework, >2.0A or short detected), analyze the telemetry against the grounding knowledge, and note the WA RCW 19.415 OEM repair-rights disclosure. Respond in structured technical markdown.`;
 
-            3. SAFETY PROTOCOL:
-               - If Temp > 45°C: Enforce MANDATORY thermal lockout status.
+    const result = await withTimeout(
+      generateWithFidelityCheck({
+        model: TRIAGE_AI_MODEL,
+        instructions: `You are the D&CP LLC Senior Technical Diagnostic Assistant (Spokane Lab, WA). Ground every technical claim (component names, rail names, failure modes) in the knowledge base below — do not state a part number, failure mechanism, or probability that isn't supported by it.\n\n${HARDWARE_FAILURE_KNOWLEDGE}`,
+        prompt,
+        groundingSource: HARDWARE_FAILURE_KNOWLEDGE,
+      }),
+      8000,
+      null
+    );
 
-            4. CUSTOMER INVOICE SUMMARY:
-               - Provide a professional, high-level summary of the diagnostic finding.
-               - Mention compliance with WA RCW 19.415.
-
-            Response must be structured, technical, and use markdown.
-          `;
-
-        const response = await withTimeout(
-          gemini.models.generateContent({
-            model: 'gemini-2.0-flash-exp',
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          }),
-          6000,
-          null
-        );
-
-        const replyText = response?.text;
-        if (replyText) {
-          diagnosticCache.set(cacheKey, replyText);
-          return NextResponse.json({ analysis: replyText, modelUsed: 'gemini-2.0-flash-exp' });
-        }
-      } catch (geminiErr) {
-        console.warn('Gemini 2.0 Flash diagnostic call failed, trying OpenAI:', geminiErr);
-      }
+    if (result?.text) {
+      diagnosticCache.set(cacheKey, result.text);
+      return NextResponse.json({
+        analysis: result.text,
+        modelUsed: TRIAGE_AI_MODEL,
+        fidelityPassed: result.fidelityPassed,
+      });
     }
-
-    const openai = getOpenAI();
-    if (openai) {
-      try {
-        const prompt = `
-            You are the D&CP LLC Senior Technical Diagnostic Assistant.
-            Analyze the following telemetry data and technician notes for a ${deviceModel || 'Device'} according to D&CP Engineering Specification Rev 4.0.
-
-            INPUT DATA:
-            - Technician/Customer Notes: "${customerReportedIssue || 'No specific notes'}"
-            - Battery Health: ${telemetry?.batteryHealthPercentage ?? 90}%
-            - Battery Temperature: ${telemetry?.batteryTempCelsius ?? 22}°C
-            - Ammeter DC Current Draw: ${telemetry?.ammeterDrawAmps ?? 0}A
-            - Logical Short to Ground (Primary Rails): ${telemetry?.isShortToGround ? 'POSITIVE' : 'NEGATIVE'}
-
-            DIAGNOSTIC MANDATES:
-            1. CLASSIFY SERVICE TIER:
-               - TIER 1 (Power/Port): < 1.0A draw, nominal rails.
-               - TIER 2 (Display): Visual fault reported, current nominal.
-               - TIER 3 (Board Rework): > 2.0A draw OR Short detected.
-
-            2. TECHNICAL ANALYSIS:
-               - If short detected: Evaluate VDD_MAIN and VDD_BOOST rails. Suggest thermal camera inspection or rosin cloud method for heat bloom detection.
-               - If Current > 5.0A: Flag for immediate short-circuit rework (Level 2 VDD_MAIN short).
-               - Calculate R_rail (Ohm's Law) if current is abnormal (assuming 4.2V nominal).
-
-            3. SAFETY PROTOCOL:
-               - If Temp > 45°C: Enforce MANDATORY thermal lockout status.
-
-            4. CUSTOMER INVOICE SUMMARY:
-               - Provide a professional, high-level summary of the diagnostic finding.
-               - Mention compliance with WA RCW 19.415.
-
-            Response must be structured, technical, and use markdown.
-          `;
-
-        const aiPromise = openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are the D&CP LLC Senior Technical Diagnostic Assistant (Spokane Lab, WA). Format your analysis in clear, professional technical markdown.',
-            },
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-          temperature: 0.2,
-        });
-
-        const response = await withTimeout(aiPromise, 6000, null);
-        const replyText = (response as any)?.choices?.[0]?.message?.content;
-
-        if (replyText) {
-          diagnosticCache.set(cacheKey, replyText);
-          return NextResponse.json({ analysis: replyText });
-        }
-      } catch (aiErr) {
-        console.warn('OpenAI API call failed, using rule-based diagnostic generator:', aiErr);
-      }
-    }
-
-    // Rule-based fallback if OPENAI_API_KEY is not configured or failed
-    const current = telemetry?.ammeterDrawAmps ?? 0;
-    const isShort = Boolean(telemetry?.isShortToGround);
-    const tier = isShort || current > 2.0 ? 'Tier 3 (Board Rework)' : current < 1.0 ? 'Tier 1 (Power/Port)' : 'Tier 2 (Display/Assembly)';
-
-    const fallbackReport = `### D&CP Engineering Diagnostic Report\n**Device Target:** ${deviceModel || 'Client Unit'}  \n**Service Classification:** ${tier}  \n**Primary Finding:** ${isShort ? 'Logical short detected on primary power rail (VDD_MAIN).' : 'Telemetry indicates standard power delivery and logic loop analysis.'}\n\n#### Technical Analysis\n- **Current Draw:** ${current}A (${current > 2.0 ? 'Abnormal elevated draw' : 'Nominal draw'})\n- **Battery Health:** ${telemetry?.batteryHealthPercentage ?? 92}% (Nominal)\n- **Bench Protocol:** ${isShort ? 'Perform thermal imaging and rosin vapor detection to isolate shorted capacitor/PMIC.' : 'Verify dock connector flex and test battery under nominal load.'}\n\n#### Compliance & Safety\n- **WA RCW 19.415 Disclosure:** All OEM repair rights preserved. Safe non-destructive diagnostic bench scan performed.`;
-
-    diagnosticCache.set(cacheKey, fallbackReport);
-    return NextResponse.json({ analysis: fallbackReport });
-  } catch (error: any) {
-    console.error('AI Error:', error);
-    return NextResponse.json({
-      analysis: `### Diagnostic Analysis (Cached Mode)\n**Status:** Service telemetry verified.\n**Recommendation:** Proceed with standard bench isolation and voltage rail probe under IPC-A-610 protocols.`,
-    });
+  } catch (aiErr) {
+    console.warn('Triage AI diagnostic call failed, using rule-based fallback:', aiErr);
   }
+
+  diagnosticCache.set(cacheKey, fallbackReport);
+  return NextResponse.json({ analysis: fallbackReport });
 }
